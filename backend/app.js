@@ -80,6 +80,18 @@ app.get('/api/health', (_request, response) => {
   });
 });
 
+app.get('/', (_request, response) => {
+  response.status(200).json({
+    name: 'IndigoMart API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/api/health',
+      docs: '/api/docs',
+    },
+  });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/search', searchRoutes);
