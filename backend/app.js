@@ -27,7 +27,18 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com'],
+        connectSrc: ["'self'", 'https://*.cloudinary.com'],
+      },
+    },
+  }),
+);
 app.use(
   cors({
     origin(origin, callback) {
@@ -44,7 +55,7 @@ app.use(
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 300,
+    limit: env.NODE_ENV === 'production' ? 600 : 300,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
   }),
