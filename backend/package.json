@@ -1,0 +1,38 @@
+{
+  "name": "indigomart-backend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "IndigoMart REST API",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.7.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.4.0",
+    "mongoose": "^8.16.2",
+    "multer": "^2.0.1",
+    "nodemailer": "^9.0.3",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.1",
+    "eslint": "^9.30.1",
+    "globals": "^16.3.0",
+    "nodemon": "^3.1.10"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

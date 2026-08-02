@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@qdrant/js-client-rest": "^1.18.0",
+    "fuse.js": "^7.5.0",
+    "openai": "^6.48.0",
+    "qrcode": "^1.5.4"
+  }
+}
