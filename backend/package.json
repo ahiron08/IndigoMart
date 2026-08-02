@@ -11,6 +11,7 @@
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
+    "@qdrant/js-client-rest": "^1.13.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.7.0",
     "cookie-parser": "^1.4.7",
@@ -24,6 +25,8 @@
     "mongoose": "^8.16.2",
     "multer": "^2.0.1",
     "nodemailer": "^9.0.3",
+    "openai": "^4.0.0",
+    "qrcode": "^1.5.4",
     "zod": "^3.25.67"
   },
   "devDependencies": {
