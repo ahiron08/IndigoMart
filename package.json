@@ -2,5 +2,17 @@
   "name": "indigomart",
   "private": true,
   "version": "1.0.0",
-  "description": "IndigoMart — an e-commerce marketplace platform"
+  "description": "IndigoMart — an e-commerce marketplace platform",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
+    "lint": "npm run lint --workspaces",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ]
 }
