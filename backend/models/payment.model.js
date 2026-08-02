@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 const paymentSchema = new mongoose.Schema(
   {
-    order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true, index: true },
-    buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true },
+    buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     method: { type: String, enum: ['COD', 'QR'], required: true },
     amount: { type: Number, required: true, min: 0 },
     status: {
