@@ -5,7 +5,7 @@ function OurStoryPage() {
     <main className="page-wrap py-20 lg:py-28">
       <motion.div
         className="mx-auto max-w-3xl text-center"
-        initial={{ opacity: 0, y: 18 }}
+        initial={false}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.65 }}
       >
@@ -18,7 +18,7 @@ function OurStoryPage() {
 
       <motion.div
         className="mx-auto mt-16 max-w-2xl space-y-6 text-base leading-8 text-muted md:text-lg md:leading-9"
-        initial={{ opacity: 0, y: 18 }}
+        initial={false}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.65, delay: 0.12 }}
       >

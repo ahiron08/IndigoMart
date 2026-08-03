@@ -20,7 +20,7 @@ function LandingPage() {
   return (
     <main>
       <section className="page-wrap grid min-h-[calc(100dvh-4.5rem)] items-center gap-10 py-16 lg:grid-cols-[1.04fr_.96fr] lg:py-20">
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65 }}>
+        <motion.div initial={false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65 }}>
           <p className="eyebrow text-clay">CRAFTED WITH PURPOSE</p>
           <h1 className="mt-6 max-w-3xl font-display text-[clamp(4rem,9vw,8.5rem)] leading-[.84] tracking-[-.055em] text-indigo">
             Discover India's Finest<br /><em className="font-normal text-clay">Handmade</em> Creations.
@@ -36,7 +36,7 @@ function LandingPage() {
 
         <motion.div
           className="hero-object relative mx-auto aspect-[4/5] w-full max-w-[570px] overflow-hidden rounded-[2rem] bg-indigo"
-          initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.12 }}
+          initial={false} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.12 }}
         >
           <div className="absolute left-[14%] top-[14%] h-[52%] w-[50%] rotate-[-9deg] rounded-[48%_52%_46%_54%] bg-accent" />
           <div className="absolute bottom-[13%] right-[10%] h-[47%] w-[47%] rotate-[12deg] rounded-[45%_55%_58%_42%] bg-clay" />

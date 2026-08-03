@@ -65,7 +65,7 @@ function ProductCard({ product }) {
           <span className="font-medium">{formatCurrency(price)}</span>
           {product.discountPrice != null && <span className="text-muted line-through">{formatCurrency(product.price)}</span>}
         </div>
-        {product.ratings?.count > 0 && <p className="mt-2 text-[11px] text-muted">★ {product.ratings.average.toFixed(1)} · {product.ratings.count} reviews</p>}
+        {product.ratings?.count > 0 && product.ratings?.average != null && <p className="mt-2 text-[11px] text-muted">★ {product.ratings.average.toFixed(1)} · {product.ratings.count} reviews</p>}
       </div>
     </article>
   );
