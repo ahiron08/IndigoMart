@@ -30,7 +30,7 @@ function ProductDetailsPage() {
         setStatus({ isLoading: false, error: '', cart: '' });
 
         // Load related products
-        return api.get(`/products/${response.data.data.product._id}/related`, { params: { limit: 6 } });
+        return api.get(`/products/${response.data.data.product._id}/related`, { params: { limit: 6 }, signal: controller.signal });
       })
       .then((response) => {
         if (response?.data?.data?.products) {
