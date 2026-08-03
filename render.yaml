@@ -1,5 +1,8 @@
-# Render Blueprint for IndigoMart
+# Render Blueprint for IndigoMart Backend
 # https://render.com/docs/blueprint-spec
+#
+# NOTE: Only the backend API is deployed to Render.
+# The frontend is deployed on Vercel (see frontend/vercel.json).
 
 services:
   # Backend API
@@ -16,7 +19,7 @@ services:
       - key: PORT
         value: 10000
       - key: CLIENT_URL
-        value: https://indigomart-frontend.onrender.com
+        value: https://YOUR-VERCEL-DOMAIN.vercel.app,http://localhost:5173
       - key: MONGODB_URI
         sync: false
       - key: JWT_ACCESS_SECRET
@@ -24,7 +27,7 @@ services:
       - key: JWT_REFRESH_SECRET
         sync: false
       - key: PASSWORD_RESET_URL
-        value: https://indigomart-frontend.onrender.com/reset-password
+        value: https://YOUR-VERCEL-DOMAIN.vercel.app/reset-password
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -49,14 +52,19 @@ services:
         sync: false
       - key: QR_PAYEE_NAME
         value: IndigoMart
-
-  # Frontend
-  - type: web
-    name: indigomart-frontend
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://indigomart-api.onrender.com
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: QDRANT_COLLECTION_NAME
+        value: indigomart_products
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: EMBEDDING_DIMENSIONS
+        value: 1536
+      - key: ENABLE_SEMANTIC_SEARCH
+        value: false
+      - key: QUERY_EXPANSION_ENABLED
+        value: false

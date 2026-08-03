@@ -1,6 +1,3 @@
-import dns from "node:dns";
-dns.setServers(["1.1.1.1", "8.8.8.8"]);
-
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import path from "node:path";

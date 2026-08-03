@@ -38,13 +38,13 @@ const environmentSchema = z.object({
   QR_UPI_ID: z.string().optional().default('indigomart@upi'),
   QR_PAYEE_NAME: z.string().optional().default('IndigoMart'),
   OPENAI_API_KEY: z.string().optional(),
-  QDRANT_URL: z.string().url().default('http://localhost:6333'),
+  QDRANT_URL: z.string().url().optional(),
   QDRANT_API_KEY: z.string().optional(),
   QDRANT_COLLECTION_NAME: z.string().default('indigomart_products'),
   EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1536),
-  ENABLE_SEMANTIC_SEARCH: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
-  QUERY_EXPANSION_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
+  ENABLE_SEMANTIC_SEARCH: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  QUERY_EXPANSION_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 }).superRefine((data, context) => {
   const cloudinaryValues = [data.CLOUDINARY_CLOUD_NAME, data.CLOUDINARY_API_KEY, data.CLOUDINARY_API_SECRET];
   const configuredCount = cloudinaryValues.filter(Boolean).length;

@@ -4,12 +4,6 @@
  *
  * After creation, the admin logs in through the normal login page.
  */
-import dns from "node:dns";
-
-dns.setServers(["1.1.1.1", "8.8.8.8"]);
-
-
-
 import 'dotenv/config';
 import { connectToDatabase, disconnectFromDatabase } from '../config/database.js';
 import User from '../models/user.model.js';

@@ -6,6 +6,10 @@ import { generateProductEmbedding } from './embedding.service.js';
 let qdrantClient = null;
 
 const getQdrantClient = () => {
+  if (!env.QDRANT_URL) {
+    throw new Error('QDRANT_URL is not configured.');
+  }
+
   if (!qdrantClient) {
     qdrantClient = new QdrantClient({
       url: env.QDRANT_URL,
@@ -19,7 +23,14 @@ const getQdrantClient = () => {
 const getCollectionName = () => env.QDRANT_COLLECTION_NAME;
 
 export const ensureCollection = async () => {
-  const client = getQdrantClient();
+  let client;
+  try {
+    client = getQdrantClient();
+  } catch (error) {
+    console.error('Qdrant is not configured:', error.message);
+    return false;
+  }
+
   const collectionName = getCollectionName();
 
   try {
@@ -49,12 +60,18 @@ export const ensureCollection = async () => {
 };
 
 export const indexProduct = async (product) => {
-  const client = getQdrantClient();
-  const collectionName = getCollectionName();
-
   if (!env.ENABLE_SEMANTIC_SEARCH) {
     return { success: true, skipped: true };
   }
+
+  let client;
+  try {
+    client = getQdrantClient();
+  } catch {
+    return { success: false, skipped: true, reason: 'qdrant_not_configured' };
+  }
+
+  const collectionName = getCollectionName();
 
   try {
     const embeddingResult = await generateProductEmbedding(product);
@@ -109,7 +126,13 @@ export const indexProduct = async (product) => {
 };
 
 export const deleteProductIndex = async (productId) => {
-  const client = getQdrantClient();
+  let client;
+  try {
+    client = getQdrantClient();
+  } catch {
+    return { success: true, skipped: true };
+  }
+
   const collectionName = getCollectionName();
 
   try {
@@ -126,15 +149,25 @@ export const deleteProductIndex = async (productId) => {
 };
 
 export const searchSimilarProducts = async (queryVector, options = {}) => {
-  const client = getQdrantClient();
-  const collectionName = getCollectionName();
-
   const {
     limit = 20,
     offset = 0,
     scoreThreshold = 0.3,
     filter = {},
   } = options;
+
+  if (!env.QDRANT_URL || !env.OPENAI_API_KEY) {
+    return [];
+  }
+
+  let client;
+  try {
+    client = getQdrantClient();
+  } catch {
+    return [];
+  }
+
+  const collectionName = getCollectionName();
 
   try {
     const qdrantFilter = {
@@ -192,7 +225,13 @@ export const searchSimilarProducts = async (queryVector, options = {}) => {
 };
 
 export const getProductEmbeddingStatus = async (productId) => {
-  const client = getQdrantClient();
+  let client;
+  try {
+    client = getQdrantClient();
+  } catch {
+    return { exists: false };
+  }
+
   const collectionName = getCollectionName();
 
   try {
@@ -220,7 +259,13 @@ export const getProductEmbeddingStatus = async (productId) => {
 };
 
 export const getIndexingStats = async () => {
-  const client = getQdrantClient();
+  let client;
+  try {
+    client = getQdrantClient();
+  } catch {
+    return { exists: false };
+  }
+
   const collectionName = getCollectionName();
 
   try {
@@ -238,7 +283,13 @@ export const getIndexingStats = async () => {
 };
 
 export const rebuildProductEmbedding = async (product) => {
-  const client = getQdrantClient();
+  let client;
+  try {
+    client = getQdrantClient();
+  } catch {
+    return { success: false, skipped: true, reason: 'qdrant_not_configured' };
+  }
+
   const collectionName = getCollectionName();
 
   try {
@@ -254,12 +305,18 @@ export const rebuildProductEmbedding = async (product) => {
 };
 
 export const batchIndexProducts = async (products) => {
-  const client = getQdrantClient();
-  const collectionName = getCollectionName();
-
   if (!env.ENABLE_SEMANTIC_SEARCH) {
     return { success: 0, failed: 0, skipped: products.length };
   }
+
+  let client;
+  try {
+    client = getQdrantClient();
+  } catch {
+    return { success: 0, failed: products.length, skipped: 0 };
+  }
+
+  const collectionName = getCollectionName();
 
   const points = [];
 

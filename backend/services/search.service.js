@@ -96,22 +96,23 @@ export const semanticSearch = async (query) => {
     };
   }
 
-  if (!keyword) {
-    const mongoFilter = buildMongoFilter(query);
-    const categoryId = await resolveCategoryId(query.category);
-    if (categoryId) mongoFilter.category = categoryId;
+  const mongoFilter = buildMongoFilter(query);
+  const categoryId = await resolveCategoryId(query.category);
+  if (categoryId) mongoFilter.category = categoryId;
 
+  const sortMap = {
+    newest: { createdAt: -1 },
+    oldest: { createdAt: 1 },
+    'price-asc': { price: 1 },
+    'price-desc': { price: -1 },
+    popularity: { orderCount: -1, views: -1 },
+    rating: { 'ratings.average': -1, 'ratings.count': -1 },
+    views: { views: -1 },
+    'best-selling': { orderCount: -1 },
+  };
+
+  if (!keyword) {
     const skip = (page - 1) * limit;
-    const sortMap = {
-      newest: { createdAt: -1 },
-      oldest: { createdAt: 1 },
-      'price-asc': { price: 1 },
-      'price-desc': { price: -1 },
-      popularity: { orderCount: -1, views: -1 },
-      rating: { 'ratings.average': -1, 'ratings.count': -1 },
-      views: { views: -1 },
-      'best-selling': { orderCount: -1 },
-    };
 
     const [products, total] = await Promise.all([
       Product.find(mongoFilter)
@@ -125,6 +126,28 @@ export const semanticSearch = async (query) => {
     ]);
 
     return { products, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, mode: 'filter' };
+  }
+
+  // Fall back to MongoDB text search when semantic search is not configured
+  if (!env.OPENAI_API_KEY || !env.QDRANT_URL) {
+    if (keyword) {
+      mongoFilter.$text = { $search: keyword };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [products, total] = await Promise.all([
+      Product.find(mongoFilter)
+        .populate('category', 'name slug')
+        .populate('creator', 'name profileImage isVerified shopName')
+        .sort(sortMap[query.sort] || { createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(mongoFilter),
+    ]);
+
+    return { products, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, mode: 'text' };
   }
 
   const expandedQuery = await expandQuery(keyword);
@@ -201,6 +224,22 @@ export const getSimilarProducts = async (productId, limit = 6) => {
   const product = await Product.findById(productId);
   if (!product) return [];
 
+  // Fall back to same-category products when semantic search is not configured
+  if (!env.OPENAI_API_KEY || !env.QDRANT_URL) {
+    const category = typeof product.category === 'object' ? product.category._id : product.category;
+    return Product.find({
+      category,
+      _id: { $ne: productId },
+      isApproved: true,
+      status: 'published',
+      isDeleted: { $ne: true },
+    })
+      .populate('category', 'name slug')
+      .populate('creator', 'name profileImage')
+      .limit(Number(limit) || 6)
+      .lean();
+  }
+
   const queryVector = await generateQueryEmbedding(
     [product.title, product.shortDescription || product.description, product.tags?.join(' ')].filter(Boolean).join(' '),
   );
@@ -256,6 +295,30 @@ export const getSearchSuggestions = async (query) => {
 
   if (!keyword || keyword.length < 2) {
     return [];
+  }
+
+  // Fall back to Mongo text search suggestions when semantic search is not configured
+  if (!env.OPENAI_API_KEY || !env.QDRANT_URL) {
+    const products = await Product.find({
+      $or: [
+        { title: { $regex: keyword, $options: 'i' } },
+        { brand: { $regex: keyword, $options: 'i' } },
+        { tags: keyword.toLowerCase() },
+      ],
+      isApproved: true,
+      status: 'published',
+      isDeleted: { $ne: true },
+    })
+      .select('title _id')
+      .limit(10)
+      .lean();
+
+    return products.map((product) => ({
+      text: product.title,
+      productId: String(product._id),
+      score: 1,
+      type: 'product',
+    }));
   }
 
   const queryVector = await generateQueryEmbedding(keyword);

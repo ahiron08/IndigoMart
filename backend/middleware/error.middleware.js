@@ -19,6 +19,8 @@ export const errorHandler = (error, _request, response, _next) => {
     normalizedError = new AppError(`Invalid value for ${error.path}.`, 400);
   } else if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
     normalizedError = new AppError('Request body contains invalid JSON.', 400);
+  } else if (error.message?.includes('Origin is not permitted by CORS policy')) {
+    normalizedError = new AppError('Origin is not permitted by CORS policy.', 403);
   }
 
   const statusCode = normalizedError.statusCode || 500;

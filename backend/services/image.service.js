@@ -1,7 +1,3 @@
-import dns from "node:dns";
-
-dns.setServers(["1.1.1.1", "8.8.8.8"]);
-
 import cloudinary from '../config/cloudinary.js';
 import { env } from '../config/env.js';
 import AppError from '../utils/app-error.js';

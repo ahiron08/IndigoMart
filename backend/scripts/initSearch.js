@@ -6,10 +6,6 @@
  * 1. Ensure Qdrant collection exists
  * 2. Rebuild all product embeddings
  */
-import dns from "node:dns";
-
-dns.setServers(["1.1.1.1", "8.8.8.8"]);
-
 import 'dotenv/config';
 import { connectToDatabase, disconnectFromDatabase } from '../config/database.js';
 import { ensureCollection, batchIndexProducts } from '../services/vector.service.js';
