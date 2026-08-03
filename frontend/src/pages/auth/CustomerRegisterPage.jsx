@@ -6,6 +6,8 @@ import { z } from 'zod';
 
 import FormField from '@/components/forms/FormField.jsx';
 import SubmitButton from '@/components/forms/SubmitButton.jsx';
+import CustomerTermsContent from '@/components/terms/CustomerTermsContent.jsx';
+import TermsModal from '@/components/terms/TermsModal.jsx';
 import { useAuth } from '@/context/AuthContext.jsx';
 import { getApiError } from '@/utils/api-error.js';
 
@@ -27,6 +29,7 @@ const schema = z.object({
 
 function CustomerRegisterPage() {
   const [formError, setFormError] = useState('');
+  const [termsOpen, setTermsOpen] = useState(false);
   const { registerCustomer } = useAuth();
   const navigate = useNavigate();
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm({
@@ -66,12 +69,25 @@ function CustomerRegisterPage() {
         <FormField label="Confirm password" type="password" autoComplete="new-password" placeholder="Repeat your password" registration={register('passwordConfirm')} error={errors.passwordConfirm} />
         <label className="flex items-start gap-3 text-xs leading-5 text-muted">
           <input className="mt-1 accent-indigo" type="checkbox" {...register('terms')} />
-          <span>I agree to the Terms of Use and Privacy Policy.</span>
+          <span>
+            I have read and agree to the{' '}
+            <button
+              type="button"
+              className="font-semibold text-indigo underline underline-offset-2 hover:text-clay"
+              onClick={() => setTermsOpen(true)}
+            >
+              Terms & Conditions
+            </button>
+            .
+          </span>
         </label>
         {errors.terms && <p className="text-xs text-clay" role="alert">{errors.terms.message}</p>}
         <SubmitButton isLoading={isSubmitting}>Create account</SubmitButton>
       </form>
       <p className="mt-7 text-center text-xs text-muted">Already have an account? <Link className="font-semibold text-indigo hover:underline" to="/login">Sign in</Link></p>
+      <TermsModal isOpen={termsOpen} onClose={() => setTermsOpen(false)} title="Customer Terms & Conditions">
+        <CustomerTermsContent />
+      </TermsModal>
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { Image as ImageIcon, X } from 'lucide-react';
 
 import FormField from '@/components/forms/FormField.jsx';
 import SubmitButton from '@/components/forms/SubmitButton.jsx';
+import SellerTermsContent from '@/components/terms/SellerTermsContent.jsx';
+import TermsModal from '@/components/terms/TermsModal.jsx';
 import { useAuth } from '@/context/AuthContext.jsx';
 import { getApiError } from '@/utils/api-error.js';
 
@@ -45,6 +47,7 @@ const schema = z.object({
 
 function SellerRegisterPage() {
   const [formError, setFormError] = useState('');
+  const [termsOpen, setTermsOpen] = useState(false);
   const [govtIdFile, setGovtIdFile] = useState(null);
   const [govtIdPreview, setGovtIdPreview] = useState('');
   const [govtIdError, setGovtIdError] = useState('');
@@ -245,12 +248,25 @@ function SellerRegisterPage() {
 
         <label className="flex items-start gap-3 text-xs leading-5 text-muted">
           <input className="mt-1 accent-indigo" type="checkbox" {...register('terms')} />
-          <span>I agree to the Terms of Use, Seller Agreement, and Privacy Policy.</span>
+          <span>
+            I have read and agree to the{' '}
+            <button
+              type="button"
+              className="font-semibold text-indigo underline underline-offset-2 hover:text-clay"
+              onClick={() => setTermsOpen(true)}
+            >
+              Seller Terms & Conditions
+            </button>
+            .
+          </span>
         </label>
         {errors.terms && <p className="text-xs text-clay" role="alert">{errors.terms.message}</p>}
         <SubmitButton isLoading={isSubmitting}>Create seller account</SubmitButton>
       </form>
       <p className="mt-7 text-center text-xs text-muted">Already have an account? <Link className="font-semibold text-indigo hover:underline" to="/login">Sign in</Link></p>
+      <TermsModal isOpen={termsOpen} onClose={() => setTermsOpen(false)} title="Seller Terms & Conditions">
+        <SellerTermsContent />
+      </TermsModal>
     </div>
   );
 }
