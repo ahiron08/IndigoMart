@@ -37,7 +37,7 @@ function Navbar() {
         <Logo />
 
         <nav className="hidden items-center gap-8 md:flex" aria-label="Primary navigation">
-          {links.map((link) => <NavLink key={link.to} to={link.to} className={linkClass}>{link.label}</NavLink>)}
+          {links.map((link) => <NavLink key={link.to} to="/shop" className={linkClass}>{link.label}</NavLink>)}
         </nav>
 
         <div className="flex items-center gap-1 sm:gap-2">
