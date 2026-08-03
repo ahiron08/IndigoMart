@@ -28,6 +28,10 @@ import CustomerRegisterPage from '@/pages/auth/CustomerRegisterPage.jsx';
 import SellerRegisterPage from '@/pages/auth/SellerRegisterPage.jsx';
 import ProtectedRoute from './ProtectedRoute.jsx';
 
+// NOTE: SignupPage is intentionally not imported — it is unused.
+// RegisterTypePage handles /signup, with CustomerRegisterPage and SellerRegisterPage
+// handling the role-specific sub-routes.
+
 const page = (title, description, eyebrow) => (
   <RoutePage title={title} description={description} eyebrow={eyebrow} />
 );

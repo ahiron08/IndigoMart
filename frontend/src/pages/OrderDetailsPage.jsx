@@ -1,4 +1,4 @@
-import { ArrowLeft, Package, Truck, CreditCard, MapPin, CheckCircle, Clock, AlertCircle, Loader2, Smartphone, Check, Image as ImageIcon, X } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CreditCard, MapPin, CheckCircle, AlertCircle, Loader2, Smartphone, Check, Image as ImageIcon, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -82,7 +82,7 @@ function OrderDetailsPage() {
     );
   }
 
-  const { order, shipment, payment: paymentInfo } = orderData || {};
+  const { order, shipment } = orderData || {};
 
   if (!order) return null;
 
@@ -340,9 +340,7 @@ function OrderDetailsPage() {
                           const formData = new FormData();
                           if (utrInput.trim()) formData.append('utrNumber', utrInput.trim());
                           if (screenshotFile) formData.append('paymentScreenshot', screenshotFile);
-                          await api.patch(`orders/${id}/payment`, formData, {
-                            headers: { 'Content-Type': 'multipart/form-data' },
-                          });
+                          await api.patch(`orders/${id}/payment`, formData);
                           setUtrSuccess('Payment details submitted! Awaiting verification.');
                           await loadOrder();
                         } catch (err) {

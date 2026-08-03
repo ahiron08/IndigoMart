@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
       }
     });
     const response = await api.post('/auth/register/seller', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      // Let axios set the Content-Type with the correct multipart boundary automatically.
     });
     setUser(response.data.data.user);
     return response.data.data.user;

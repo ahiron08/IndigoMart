@@ -1,7 +1,5 @@
 import { Component } from 'react';
 
-import Logo from './Logo.jsx';
-
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -21,7 +19,11 @@ class ErrorBoundary extends Component {
       return (
         <div className="grid min-h-dvh place-items-center bg-canvas px-6">
           <div className="max-w-md text-center">
-            <div className="flex justify-center"><Logo /></div>
+            <div className="flex justify-center">
+              <span className="font-display text-2xl tracking-tight text-indigo">
+                Indigo<span className="text-accent">Mart</span>
+              </span>
+            </div>
             <h1 className="mt-8 font-display text-4xl text-indigo">Something went wrong.</h1>
             <p className="mt-4 text-sm leading-6 text-muted">
               An unexpected error occurred while rendering this page. Refresh to try again.

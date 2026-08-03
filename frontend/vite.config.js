@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: {
-            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'react-vendor': ['react', 'react-dom', 'react-router', 'react-router-dom'],
             'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
             'ui-vendor': ['framer-motion', 'lucide-react'],
             'http-vendor': ['axios'],

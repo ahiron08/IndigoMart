@@ -1,5 +1,5 @@
-import { ArrowLeft, Plus, X, GripVertical, Image as ImageIcon } from 'lucide-react';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { ArrowLeft, Plus, X, Image as ImageIcon } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import api from '@/services/api.js';
@@ -52,25 +52,11 @@ function ProductFormPage() {
   const [validationErrors, setValidationErrors] = useState([]);
   const [success, setSuccess] = useState('');
   const [formData, setFormData] = useState(initialFormData);
-  const [images, setImages] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
   const [newImageFiles, setNewImageFiles] = useState([]);
   const [dragOver, setDragOver] = useState(false);
-  const [activeSection, setActiveSection] = useState(0);
   const fileInputRef = useRef(null);
   const { categories, isLoading: categoriesLoading } = useCategories();
-
-  const sections = [
-    { id: 0, label: 'Basic Info', short: 'Info' },
-    { id: 1, label: 'Pricing', short: 'Price' },
-    { id: 2, label: 'Inventory', short: 'Stock' },
-    { id: 3, label: 'Images', short: 'Images' },
-    { id: 4, label: 'Tags', short: 'Tags' },
-    { id: 5, label: 'Specifications', short: 'Specs' },
-    { id: 6, label: 'Shipping', short: 'Ship' },
-    { id: 7, label: 'SEO', short: 'SEO' },
-    { id: 8, label: 'Visibility', short: 'Publish' },
-  ];
 
   useEffect(() => {
     if (isEdit) {
@@ -307,10 +293,10 @@ function ProductFormPage() {
       });
 
       if (isEdit) {
-        await api.patch('products/' + id, submitData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.patch('products/' + id, submitData);
         setSuccess('Product updated successfully!');
       } else {
-        await api.post('products', submitData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.post('products', submitData);
         setSuccess('Product created successfully!');
       }
 

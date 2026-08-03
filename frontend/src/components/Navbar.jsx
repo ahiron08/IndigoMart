@@ -1,4 +1,4 @@
-import { Heart, LayoutDashboard, LogOut, Menu, Search, ShoppingBag, Store, UserRound, X, User, Package } from 'lucide-react';
+import { Heart, LayoutDashboard, LogOut, Menu, Search, ShoppingBag, UserRound, X, User, Package } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 
