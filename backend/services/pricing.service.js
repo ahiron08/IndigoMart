@@ -22,8 +22,7 @@ export const getActiveSlabs = async () => {
   return slabs.length > 0 ? slabs : DEFAULT_SLABS;
 };
 
-export const calculateMargin = async (sellerPrice) => {
-  const slabs = await getActiveSlabs();
+export const getMarginForPrice = (sellerPrice, slabs = DEFAULT_SLABS) => {
   const slab = slabs.find((s) => sellerPrice >= s.minPrice && sellerPrice <= s.maxPrice);
 
   if (!slab) {
@@ -39,6 +38,46 @@ export const calculateMargin = async (sellerPrice) => {
   return slab.marginAmount;
 };
 
+export const calculateMargin = async (sellerPrice) => {
+  const slabs = await getActiveSlabs();
+  return getMarginForPrice(sellerPrice, slabs);
+};
+
+/**
+ * Adds customer-facing price fields to an array of product documents.
+ * Each product receives:
+ *   - platformMargin: the margin applied to the effective (discounted) price
+ *   - customerPrice: effective price + margin (what buyers see)
+ *   - customerOriginalPrice: original price + margin (for strikethrough display)
+ */
+export const enrichWithCustomerPrice = async (products) => {
+  if (!Array.isArray(products) || products.length === 0) return products || [];
+
+  const slabs = await getActiveSlabs();
+
+  return products.map((product) => {
+    const price = product?.price ?? 0;
+    const discountPrice = product?.discountPrice ?? null;
+    const effectivePrice = discountPrice ?? price;
+
+    const margin = getMarginForPrice(effectivePrice, slabs);
+    const originalMargin = getMarginForPrice(price, slabs);
+
+    return {
+      ...product,
+      platformMargin: margin,
+      customerPrice: effectivePrice + margin,
+      customerOriginalPrice: price + originalMargin,
+    };
+  });
+};
+
+export const enrichProductWithCustomerPrice = async (product) => {
+  if (!product) return product;
+  const enriched = await enrichWithCustomerPrice([product]);
+  return enriched[0];
+};
+
 export const calculateTotalPrice = async (sellerPrice, shippingCost) => {
   const platformMargin = await calculateMargin(sellerPrice);
   return {
@@ -52,6 +91,9 @@ export const calculateTotalPrice = async (sellerPrice, shippingCost) => {
 export default {
   seedDefaultSlabs,
   getActiveSlabs,
+  getMarginForPrice,
   calculateMargin,
+  enrichWithCustomerPrice,
+  enrichProductWithCustomerPrice,
   calculateTotalPrice,
 };

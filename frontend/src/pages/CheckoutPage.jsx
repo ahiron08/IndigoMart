@@ -518,12 +518,8 @@ function OrderSummaryCard({ checkoutData }) {
       {/* Price Breakdown */}
       <div className="mt-4 space-y-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-muted">Seller Price</span>
-          <span>{formatCurrency(checkoutData.pricing.sellerPrice)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted">Platform Margin</span>
-          <span className="text-indigo">+{formatCurrency(checkoutData.pricing.platformMargin)}</span>
+          <span className="text-muted">Subtotal</span>
+          <span>{formatCurrency(checkoutData.pricing.customerSubtotal ?? checkoutData.pricing.sellerPrice)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-muted">Shipping Cost</span>

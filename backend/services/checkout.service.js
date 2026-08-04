@@ -118,13 +118,16 @@ export const calculateCheckout = async ({ productId, quantity, deliveryPincode, 
   const estimatedMin = new Date(now.getTime() + minDays * 24 * 60 * 60 * 1000);
   const estimatedMax = new Date(now.getTime() + maxDays * 24 * 60 * 60 * 1000);
 
+  const customerPrice = (product.discountPrice || product.price) + pricing.platformMargin;
+  const customerOriginalPrice = product.price + pricing.platformMargin;
+
   return {
     product: {
       _id: product._id,
       title: product.title,
       image: product.images?.[0]?.url || '',
-      price: product.discountPrice || product.price,
-      originalPrice: product.price,
+      price: customerPrice,
+      originalPrice: customerOriginalPrice,
     },
     seller: {
       _id: seller._id,
@@ -144,6 +147,7 @@ export const calculateCheckout = async ({ productId, quantity, deliveryPincode, 
     },
     pricing: {
       sellerPrice,
+      customerSubtotal: sellerPrice + pricing.platformMargin,
       platformMargin: pricing.platformMargin,
       shippingCost: pricing.shippingCost,
       discountAmount,
@@ -232,6 +236,7 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
     pickupAddress: getSellerPickupInfo(seller),
     pricing: {
       subtotal: sellerPrice,
+      customerSubtotal: sellerPrice + pricing.platformMargin,
       platformMargin: pricing.platformMargin,
       shippingCost: shipping.charge,
       discountAmount,

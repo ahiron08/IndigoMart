@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { getOrderById } from '@/services/orders.js';
+import { useAuth } from '@/context/AuthContext.jsx';
 import { formatCurrency } from '@/utils/format.js';
 import { generateQR } from '@/services/payment.js';
 import api from '@/services/api.js';
@@ -31,9 +32,11 @@ const statusColors = {
 function OrderDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const success = searchParams.get('success');
   const payment = searchParams.get('payment');
+  const isSeller = user?.role === 'seller' || user?.role === 'creator';
 
   const [loading, setLoading] = useState(true);
   const [orderData, setOrderData] = useState(null);
@@ -411,7 +414,7 @@ function OrderDetailsPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm line-clamp-2">{item.title}</p>
                     <p className="text-xs text-muted mt-1">Qty: {item.quantity}</p>
-                    <p className="text-sm font-medium text-indigo mt-1">{formatCurrency(item.sellerPrice)}</p>
+                    <p className="text-sm font-medium text-indigo mt-1">{formatCurrency(isSeller ? item.sellerPrice : (item.sellerPrice || 0) + (item.platformMargin || 0))}</p>
                   </div>
                 </div>
               ))}
@@ -419,14 +422,23 @@ function OrderDetailsPage() {
 
             {/* Pricing */}
             <div className="mt-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted">Subtotal</span>
-                <span>{formatCurrency(order.pricing?.subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Platform Margin</span>
-                <span className="text-indigo">+{formatCurrency(order.pricing?.platformMargin)}</span>
-              </div>
+              {isSeller ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted">Subtotal</span>
+                    <span>{formatCurrency(order.pricing?.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted">Platform Margin</span>
+                    <span className="text-indigo">+{formatCurrency(order.pricing?.platformMargin)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-muted">Subtotal</span>
+                  <span>{formatCurrency(order.pricing?.customerSubtotal ?? order.pricing?.subtotal)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted">Shipping</span>
                 <span>+{formatCurrency(order.pricing?.shippingCost)}</span>

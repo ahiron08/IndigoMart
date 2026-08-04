@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '@/context/AuthContext.jsx';
 import api from '@/services/api.js';
-import { formatCurrency, getProductPrice } from '@/utils/format.js';
+import { formatCurrency, getProductOriginalPrice, getProductPrice } from '@/utils/format.js';
 
 function ProductCard({ product }) {
   const [saved, setSaved] = useState(false);
@@ -63,7 +63,7 @@ function ProductCard({ product }) {
         </div>
         <div className="mt-auto pt-3 flex items-center justify-between gap-2 text-xs">
           <span className="font-medium">{formatCurrency(price)}</span>
-          {product.discountPrice != null && <span className="text-muted line-through">{formatCurrency(product.price)}</span>}
+          {product.discountPrice != null && <span className="text-muted line-through">{formatCurrency(getProductOriginalPrice(product))}</span>}
         </div>
         {product.ratings?.count > 0 && product.ratings?.average != null && <p className="mt-2 text-[11px] text-muted">★ {product.ratings.average.toFixed(1)} · {product.ratings.count} reviews</p>}
       </div>

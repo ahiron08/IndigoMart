@@ -2,6 +2,7 @@ import Product from '../models/product.model.js';
 import User from '../models/user.model.js';
 import Wishlist from '../models/wishlist.model.js';
 import AppError from '../utils/app-error.js';
+import { enrichWithCustomerPrice } from './pricing.service.js';
 
 const getOrCreateWishlist = async (userId) => {
   const wishlist = await Wishlist.findOneAndUpdate(
@@ -13,12 +14,17 @@ const getOrCreateWishlist = async (userId) => {
   return wishlist;
 };
 
-const populatedWishlist = (id) =>
-  Wishlist.findById(id).populate({
+const populatedWishlist = async (id) => {
+  const wishlist = await Wishlist.findById(id).populate({
     path: 'products',
     match: { isApproved: true },
     select: 'title slug price discountPrice images stock brand ratings',
   });
+  if (!wishlist) return wishlist;
+  const enrichedProducts = await enrichWithCustomerPrice(wishlist.products);
+  wishlist.products = enrichedProducts;
+  return wishlist;
+};
 
 export const getWishlist = async (userId) => {
   const wishlist = await getOrCreateWishlist(userId);

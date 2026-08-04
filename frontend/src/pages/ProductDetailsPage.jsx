@@ -6,7 +6,7 @@ import ProductGridSkeleton from '@/components/catalog/ProductGridSkeleton.jsx';
 import { useAuth } from '@/context/AuthContext.jsx';
 import api from '@/services/api.js';
 import { getApiError } from '@/utils/api-error.js';
-import { formatCurrency, getProductPrice } from '@/utils/format.js';
+import { formatCurrency, getProductOriginalPrice, getProductPrice } from '@/utils/format.js';
 
 function ProductDetailsPage() {
   const { identifier } = useParams();
@@ -109,7 +109,7 @@ function ProductDetailsPage() {
 
           <div className="mt-6 flex items-center gap-3">
             <span className="text-lg font-medium">{formatCurrency(price)}</span>
-            {product.discountPrice != null && <span className="text-sm text-muted line-through">{formatCurrency(product.price)}</span>}
+            {product.discountPrice != null && <span className="text-sm text-muted line-through">{formatCurrency(getProductOriginalPrice(product))}</span>}
             {product.discountPercentage > 0 && <span className="status-pill bg-clay/15 text-clay">{product.discountPercentage}% OFF</span>}
             <span className="ml-auto text-xs text-muted">★ {product.ratings?.average?.toFixed(1) || 'New'} {product.ratings?.count ? `(${product.ratings.count})` : ''}</span>
           </div>

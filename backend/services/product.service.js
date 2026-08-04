@@ -9,6 +9,7 @@ import AppError from '../utils/app-error.js';
 import { createSlug } from '../utils/slug.js';
 import { deleteImages, uploadImage } from './image.service.js';
 import { indexProduct } from './vector.service.js';
+import { enrichWithCustomerPrice } from './pricing.service.js';
 import { env } from '../config/env.js';
 
 const uniqueProductSlug = async (title, excludedId) => {
@@ -168,7 +169,9 @@ export const listProducts = async (query) => {
     Product.countDocuments(filter),
   ]);
 
-  return { products, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
+  const enrichedProducts = await enrichWithCustomerPrice(products);
+
+  return { products: enrichedProducts, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 };
 
 export const getProduct = async (identifier) => {
@@ -181,7 +184,8 @@ export const getProduct = async (identifier) => {
   // Increment view count (fire and forget)
   Product.findByIdAndUpdate(product._id, { $inc: { views: 1 } }).catch(() => {});
 
-  return product;
+  const enriched = await enrichWithCustomerPrice([product.toObject()]);
+  return enriched[0];
 };
 
 export const getMyProduct = async (id, userId) => {
@@ -510,7 +514,9 @@ export const searchProducts = async (query) => {
     Product.countDocuments(filter),
   ]);
 
-  return { products, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
+  const enrichedProducts = await enrichWithCustomerPrice(products);
+
+  return { products: enrichedProducts, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 };
 
 // Get related products
@@ -535,5 +541,5 @@ export const getRelatedProducts = async (productId, limit = 6) => {
     .sort({ createdAt: -1 })
     .lean();
 
-  return related;
+  return enrichWithCustomerPrice(related);
 };

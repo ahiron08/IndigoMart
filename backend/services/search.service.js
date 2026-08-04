@@ -5,6 +5,7 @@ import { expandQuery, generateQueryEmbedding } from './embedding.service.js';
 import { searchSimilarProducts } from './vector.service.js';
 import { rankSearchResults } from './search-ranking.service.js';
 import { getCachedSearch, setCachedSearch } from './cache.service.js';
+import { enrichWithCustomerPrice } from './pricing.service.js';
 import Product from '../models/product.model.js';
 import Category from '../models/category.model.js';
 
@@ -85,7 +86,8 @@ export const semanticSearch = async (query) => {
   const cachedResult = getCachedSearch(query);
   if (cachedResult) {
     const start = (page - 1) * limit;
-    const paginatedProducts = cachedResult.products.slice(start, start + limit);
+    const enrichedCachedProducts = await enrichWithCustomerPrice(cachedResult.products);
+    const paginatedProducts = enrichedCachedProducts.slice(start, start + limit);
 
     return {
       products: paginatedProducts,
@@ -125,7 +127,9 @@ export const semanticSearch = async (query) => {
       Product.countDocuments(mongoFilter),
     ]);
 
-    return { products, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, mode: 'filter' };
+    const enrichedProducts = await enrichWithCustomerPrice(products);
+
+    return { products: enrichedProducts, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, mode: 'filter' };
   }
 
   // Fall back to MongoDB text search when semantic search is not configured
@@ -147,7 +151,9 @@ export const semanticSearch = async (query) => {
       Product.countDocuments(mongoFilter),
     ]);
 
-    return { products, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, mode: 'text' };
+    const enrichedProducts = await enrichWithCustomerPrice(products);
+
+    return { products: enrichedProducts, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, mode: 'text' };
   }
 
   const expandedQuery = await expandQuery(keyword);
@@ -185,10 +191,12 @@ export const semanticSearch = async (query) => {
     if (categoryId) mongoFilter.category = categoryId;
     mongoFilter._id = { $in: productIds.map((id) => new mongoose.Types.ObjectId(id)) };
 
-    const dbProducts = await Product.find(mongoFilter)
-      .populate('category', 'name slug')
-      .populate('creator', 'name profileImage isVerified shopName')
-      .lean();
+    const dbProducts = await enrichWithCustomerPrice(
+      await Product.find(mongoFilter)
+        .populate('category', 'name slug')
+        .populate('creator', 'name profileImage isVerified shopName')
+        .lean(),
+    );
 
     const productMap = new Map(dbProducts.map((product) => [String(product._id), product]));
 
@@ -227,7 +235,7 @@ export const getSimilarProducts = async (productId, limit = 6) => {
   // Fall back to same-category products when semantic search is not configured
   if (!env.OPENAI_API_KEY || !env.QDRANT_URL) {
     const category = typeof product.category === 'object' ? product.category._id : product.category;
-    return Product.find({
+    const related = await Product.find({
       category,
       _id: { $ne: productId },
       isApproved: true,
@@ -238,6 +246,8 @@ export const getSimilarProducts = async (productId, limit = 6) => {
       .populate('creator', 'name profileImage')
       .limit(Number(limit) || 6)
       .lean();
+
+    return enrichWithCustomerPrice(related);
   }
 
   const queryVector = await generateQueryEmbedding(
@@ -266,15 +276,17 @@ export const getSimilarProducts = async (productId, limit = 6) => {
     return [];
   }
 
-  const similarProducts = await Product.find({
-    _id: { $in: productIds.map((id) => new mongoose.Types.ObjectId(id)) },
-    isApproved: true,
-    status: 'published',
-    isDeleted: { $ne: true },
-  })
-    .populate('category', 'name slug')
-    .populate('creator', 'name profileImage')
-    .lean();
+  const similarProducts = await enrichWithCustomerPrice(
+    await Product.find({
+      _id: { $in: productIds.map((id) => new mongoose.Types.ObjectId(id)) },
+      isApproved: true,
+      status: 'published',
+      isDeleted: { $ne: true },
+    })
+      .populate('category', 'name slug')
+      .populate('creator', 'name profileImage')
+      .lean(),
+  );
 
   const productMap = new Map(similarProducts.map((p) => [String(p._id), p]));
 

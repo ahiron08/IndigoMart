@@ -2,6 +2,7 @@ import Cart from '../models/cart.model.js';
 import Product from '../models/product.model.js';
 import User from '../models/user.model.js';
 import AppError from '../utils/app-error.js';
+import { enrichWithCustomerPrice } from './pricing.service.js';
 
 const productSelection = 'title slug price discountPrice images stock brand isApproved';
 
@@ -23,13 +24,35 @@ const serializeCart = async (cartId) => {
       const unitPrice = item.product.discountPrice ?? item.product.price;
       return { ...item, unitPrice, lineTotal: unitPrice * item.quantity };
     });
-  const subtotal = items.reduce((total, item) => total + item.lineTotal, 0);
+
+  // Enrich products with customer-facing prices (seller price + platform margin)
+  const products = items.map((item) => item.product);
+  const enrichedProducts = await enrichWithCustomerPrice(products);
+  const enrichedMap = new Map(enrichedProducts.map((product) => [String(product._id), product]));
+
+  const enrichedItems = items.map((item) => {
+    const enriched = enrichedMap.get(String(item.product._id));
+    if (!enriched) return item;
+    const customerPrice = enriched.customerPrice;
+    const sellerPrice = enriched.customerPrice - enriched.platformMargin;
+    return {
+      ...item,
+      product: enriched,
+      unitPrice: customerPrice,
+      lineTotal: customerPrice * item.quantity,
+      sellerUnitPrice: sellerPrice,
+      sellerLineTotal: sellerPrice * item.quantity,
+      platformMargin: enriched.platformMargin,
+    };
+  });
+
+  const subtotal = enrichedItems.reduce((total, item) => total + item.lineTotal, 0);
 
   return {
     id: cart?._id,
-    items,
+    items: enrichedItems,
     summary: {
-      itemCount: items.reduce((total, item) => total + item.quantity, 0),
+      itemCount: enrichedItems.reduce((total, item) => total + item.quantity, 0),
       subtotal,
       currency: 'INR',
     },
