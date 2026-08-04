@@ -40,6 +40,12 @@ const productSchema = new mongoose.Schema(
     description: { type: String, required: true, trim: true, minlength: 20, maxlength: 10_000 },
     shortDescription: { type: String, trim: true, maxlength: 500, default: '' },
     price: { type: Number, required: true, min: 0 },
+    // Seller price (what the seller wants to receive) — backward compatible with `price`
+    sellerPrice: { type: Number, min: 0 },
+    // Platform fee automatically calculated from seller price
+    platformFee: { type: Number, min: 0, default: 0 },
+    // Customer-facing price = sellerPrice + platformFee
+    displayPrice: { type: Number, min: 0 },
     discountPrice: {
       type: Number,
       min: 0,
@@ -53,6 +59,8 @@ const productSchema = new mongoose.Schema(
     discountPercentage: { type: Number, min: 0, max: 100, default: 0 },
     taxIncluded: { type: Boolean, default: false },
     pickupAddress: { type: String, trim: true, maxlength: 500, default: '' },
+    // Pickup pincode for this product (used for shipping cost calculation)
+    pickupPincode: { type: String, trim: true, match: /^[1-9][0-9]{5}$/, default: '' },
     shippingCharge: { type: Number, min: 0, default: 0 },
     codAvailable: { type: Boolean, default: true },
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true, index: true },

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import api from '@/services/api.js';
-import { formatCurrency, getProductPrice } from '@/utils/format.js';
+import { formatCurrency } from '@/utils/format.js';
 
 function MyProductsPage() {
   const [products, setProducts] = useState([]);
@@ -206,7 +206,7 @@ function MyProductsPage() {
         <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {filteredProducts.map((product) => {
             const image = product.images?.[0];
-            const price = getProductPrice(product);
+            const price = product.sellerPrice ?? product.price;
 
             return (
               <article key={product._id} className="group rounded-2xl border border-indigo/10 bg-canvas overflow-hidden">

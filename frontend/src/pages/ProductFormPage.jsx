@@ -6,6 +6,28 @@ import api from '@/services/api.js';
 import { useCategories } from '@/hooks/useCatalog.js';
 import { formatCurrency } from '@/utils/format.js';
 
+// Platform fee pricing table (mirrors backend)
+const PLATFORM_FEE_SLABS = [
+  { min: 1, max: 99, fee: 20 },
+  { min: 100, max: 199, fee: 30 },
+  { min: 200, max: 299, fee: 40 },
+  { min: 300, max: 499, fee: 50 },
+  { min: 500, max: 749, fee: 70 },
+  { min: 750, max: 999, fee: 90 },
+  { min: 1000, max: 1499, fee: 120 },
+  { min: 1500, max: 1999, fee: 150 },
+  { min: 2000, max: 2999, fee: 200 },
+  { min: 3000, max: 4999, fee: 300 },
+  { min: 5000, max: 6999, fee: 600 },
+  { min: 7000, max: Infinity, fee: 600 },
+];
+
+const getPlatformFee = (price) => {
+  const p = Number(price) || 0;
+  const slab = PLATFORM_FEE_SLABS.find((s) => p >= s.min && p <= s.max);
+  return slab ? slab.fee : 20;
+};
+
 const initialFormData = {
   title: '',
   shortDescription: '',
@@ -16,6 +38,7 @@ const initialFormData = {
   sku: '',
   productCondition: 'new',
   price: '',
+  sellerPrice: '',
   discountPercentage: '',
   discountPrice: '',
   taxIncluded: false,
@@ -28,6 +51,7 @@ const initialFormData = {
   tags: [],
   specifications: [],
   pickupAddress: '',
+  pickupPincode: '',
   shippingDetails: {
     weight: '',
     dimensions: { length: '', width: '', height: '' },
@@ -80,6 +104,7 @@ function ProductFormPage() {
         sku: product.sku || '',
         productCondition: product.productCondition || 'new',
         price: product.price?.toString() || '',
+        sellerPrice: product.sellerPrice?.toString() || product.price?.toString() || '',
         discountPercentage: product.discountPercentage?.toString() || '',
         discountPrice: product.discountPrice?.toString() || '',
         taxIncluded: product.taxIncluded || false,
@@ -92,6 +117,7 @@ function ProductFormPage() {
         tags: product.tags || [],
         specifications: product.specifications || [],
         pickupAddress: product.pickupAddress || '',
+        pickupPincode: product.pickupPincode || '',
         shippingDetails: product.shippingDetails || initialFormData.shippingDetails,
         metaTitle: product.metaTitle || '',
         metaDescription: product.metaDescription || '',
@@ -231,6 +257,12 @@ function ProductFormPage() {
     return finalPrice.toFixed(2);
   };
 
+  const calculateCustomerPrice = () => {
+    const sellerPrice = parseFloat(formData.sellerPrice || formData.price) || 0;
+    const fee = getPlatformFee(sellerPrice);
+    return { sellerPrice, fee, displayPrice: sellerPrice + fee };
+  };
+
   const validateForm = () => {
     if (!formData.title.trim()) {
       setError('Product name is required.');
@@ -242,6 +274,10 @@ function ProductFormPage() {
     }
     if (!formData.price || parseFloat(formData.price) <= 0) {
       setError('Price must be greater than 0.');
+      return false;
+    }
+    if (!formData.pickupPincode || !/^[1-9][0-9]{5}$/.test(formData.pickupPincode)) {
+      setError('Pickup pincode must be a valid 6-digit Indian pincode.');
       return false;
     }
     if (!formData.category) {
@@ -402,8 +438,9 @@ function ProductFormPage() {
             <div className="mt-6 space-y-5">
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-medium">Price (₹) *</label>
-                  <input className="form-input mt-2" name="price" type="number" step="0.01" min="0" value={formData.price} onChange={(e) => handleInputChange('price', e.target.value)} placeholder="0.00" required />
+                  <label className="block text-xs font-medium">Your Price (₹) *</label>
+                  <input className="form-input mt-2" name="sellerPrice" type="number" step="0.01" min="0" value={formData.sellerPrice || formData.price} onChange={(e) => { handleInputChange('sellerPrice', e.target.value); handleInputChange('price', e.target.value); }} placeholder="0.00" required />
+                  <p className="mt-1 text-[10px] text-muted">This is the amount you receive per unit.</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium">Discount Percentage (%)</label>
@@ -415,6 +452,31 @@ function ProductFormPage() {
                   <p className="text-sm text-muted">Final Price: <span className="font-medium text-indigo">{formatCurrency(calculateFinalPrice())}</span></p>
                 </div>
               )}
+              {(() => {
+                const { sellerPrice, fee, displayPrice } = calculateCustomerPrice();
+                if (sellerPrice > 0) {
+                  return (
+                    <div className="rounded-xl bg-indigo/5 border border-indigo/10 p-4">
+                      <p className="text-xs font-medium text-muted">Customer Price Preview</p>
+                      <div className="mt-2 space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted">Your Price</span>
+                          <span>{formatCurrency(sellerPrice)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted">Platform Fee</span>
+                          <span className="text-clay">+{formatCurrency(fee)}</span>
+                        </div>
+                        <div className="flex justify-between border-t border-indigo/10 pt-1.5 font-semibold">
+                          <span>Customer Pays</span>
+                          <span className="text-indigo">{formatCurrency(displayPrice)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium">Shipping Charge (₹)</label>
@@ -597,9 +659,16 @@ function ProductFormPage() {
                   <input className="form-input mt-2" type="number" min="0" value={formData.shippingDetails.returnWindow} onChange={(e) => handleNestedChange('shippingDetails', 'returnWindow', e.target.value)} placeholder="7" />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium">PickUp Address</label>
-                <textarea className="form-input mt-2" value={formData.pickupAddress} onChange={(e) => handleInputChange('pickupAddress', e.target.value)} placeholder="Enter pickup address for this product" rows={2} maxLength={500} />
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium">Pickup Pincode *</label>
+                  <input className="form-input mt-2" name="pickupPincode" type="text" pattern="[1-9][0-9]{5}" maxLength={6} value={formData.pickupPincode} onChange={(e) => handleInputChange('pickupPincode', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="e.g., 785001" required />
+                  <p className="mt-1 text-[10px] text-muted">Used to calculate shipping cost for this product.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium">PickUp Address</label>
+                  <textarea className="form-input mt-2" value={formData.pickupAddress} onChange={(e) => handleInputChange('pickupAddress', e.target.value)} placeholder="Enter pickup address for this product" rows={2} maxLength={500} />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-medium">Shipping Regions</label>

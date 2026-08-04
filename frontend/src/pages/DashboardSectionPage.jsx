@@ -291,7 +291,9 @@ function ProductsSection() {
               <tr>
                 <th className="p-4 font-medium">Product</th>
                 <th className="p-4 font-medium">Seller</th>
-                <th className="p-4 font-medium">Price</th>
+                <th className="p-4 font-medium">Seller Price</th>
+                <th className="p-4 font-medium">Platform Fee</th>
+                <th className="p-4 font-medium">Display Price</th>
                 <th className="p-4 font-medium">Status</th>
                 <th className="p-4 font-medium">Approved</th>
                 <th className="p-4 font-medium text-right">Actions</th>
@@ -304,7 +306,9 @@ function ProductsSection() {
                     <p className="max-w-[200px] truncate font-medium">{product.title}</p>
                   </td>
                   <td className="p-4 text-muted">{product.sellerName || product.creator?.name || '—'}</td>
-                  <td className="p-4">{formatCurrency(product.price)}</td>
+                  <td className="p-4">{formatCurrency(product.sellerPrice ?? product.price)}</td>
+                  <td className="p-4 text-clay">+{formatCurrency(product.platformFee ?? 0)}</td>
+                  <td className="p-4 font-medium">{formatCurrency(product.displayPrice ?? (product.sellerPrice ?? product.price) + (product.platformFee ?? 0))}</td>
                   <td className="p-4">
                     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusPill(product.status === 'published')}`}>
                       {product.status}
@@ -398,6 +402,9 @@ function OrderDetailsModal({ order, onClose, onStatusChange, updating }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{item.title}</p>
                   <p className="text-xs text-muted">Qty: {item.quantity} × {formatCurrency(item.sellerPrice)}</p>
+                  {item.platformMargin > 0 && (
+                    <p className="text-[10px] text-muted">Platform Fee: +{formatCurrency(item.platformMargin)}</p>
+                  )}
                 </div>
                 <p className="font-medium">{formatCurrency(item.totalPrice)}</p>
               </div>
@@ -414,6 +421,9 @@ function OrderDetailsModal({ order, onClose, onStatusChange, updating }) {
             <p>{order.pickupAddress?.address || '—'}</p>
             {order.pickupAddress?.landmark && <p>Landmark: {order.pickupAddress.landmark}</p>}
             <p>{[order.pickupAddress?.city, order.pickupAddress?.state, order.pickupAddress?.pincode].filter(Boolean).join(', ') || '—'}</p>
+            {order.pickupAddress?.pincode && (
+              <p className="mt-1 text-xs font-medium text-indigo">Pickup Pincode: {order.pickupAddress.pincode}</p>
+            )}
           </div>
         </div>
 
@@ -427,6 +437,9 @@ function OrderDetailsModal({ order, onClose, onStatusChange, updating }) {
             {order.deliveryAddress?.line2 && <p>{order.deliveryAddress.line2}</p>}
             {order.deliveryAddress?.landmark && <p>Landmark: {order.deliveryAddress.landmark}</p>}
             <p>{[order.deliveryAddress?.city, order.deliveryAddress?.state, order.deliveryAddress?.pincode].filter(Boolean).join(', ') || '—'}</p>
+            {order.deliveryAddress?.pincode && (
+              <p className="mt-1 text-xs font-medium text-indigo">Delivery Pincode: {order.deliveryAddress.pincode}</p>
+            )}
           </div>
         </div>
 
@@ -501,15 +514,19 @@ function OrderDetailsModal({ order, onClose, onStatusChange, updating }) {
           <p className="mb-2 text-xs font-semibold text-indigo">Pricing Breakdown</p>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted">Subtotal</span>
+              <span className="text-muted">Seller Price</span>
               <span>{formatCurrency(order.pricing?.subtotal)}</span>
             </div>
             {order.pricing?.platformMargin > 0 && (
               <div className="flex justify-between">
-                <span className="text-muted">Platform Margin</span>
+                <span className="text-muted">Platform Fee</span>
                 <span>{formatCurrency(order.pricing?.platformMargin)}</span>
               </div>
             )}
+            <div className="flex justify-between">
+              <span className="text-muted">Customer Subtotal</span>
+              <span>{formatCurrency(order.pricing?.customerSubtotal ?? (order.pricing?.subtotal || 0) + (order.pricing?.platformMargin || 0))}</span>
+            </div>
             <div className="flex justify-between">
               <span className="text-muted">Shipping</span>
               <span>{formatCurrency(order.pricing?.shippingCost)}</span>

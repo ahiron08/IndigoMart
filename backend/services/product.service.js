@@ -9,7 +9,7 @@ import AppError from '../utils/app-error.js';
 import { createSlug } from '../utils/slug.js';
 import { deleteImages, uploadImage } from './image.service.js';
 import { indexProduct } from './vector.service.js';
-import { enrichWithCustomerPrice } from './pricing.service.js';
+import { enrichWithCustomerPrice, calculateDisplayPrice } from './pricing.service.js';
 import { env } from '../config/env.js';
 
 const uniqueProductSlug = async (title, excludedId) => {
@@ -228,6 +228,14 @@ export const createProduct = async (data, files, creatorId) => {
       discountPrice = data.price - (data.price * data.discountPercentage) / 100;
     }
 
+    // Calculate platform fee and display price from seller price (backend-controlled)
+    const sellerPrice = data.sellerPrice ?? data.price;
+    const { platformFee, displayPrice } = await calculateDisplayPrice(sellerPrice);
+    data.sellerPrice = sellerPrice;
+    data.platformFee = platformFee;
+    data.displayPrice = displayPrice;
+    data.price = sellerPrice; // Keep `price` in sync with seller price for backward compatibility
+
     // Auto-set stock status based on stock quantity
     let stockStatus = data.stockStatus || 'in_stock';
     if (data.stock === 0) stockStatus = 'out_of_stock';
@@ -324,6 +332,16 @@ export const updateProduct = async (id, data, files, user) => {
   if (data.discountPercentage && !data.discountPrice) {
     const price = data.price || product.price;
     data.discountPrice = price - (price * data.discountPercentage) / 100;
+  }
+
+  // Recalculate platform fee and display price when seller price changes
+  if (data.sellerPrice !== undefined || data.price !== undefined) {
+    const sellerPrice = data.sellerPrice ?? data.price ?? product.sellerPrice ?? product.price;
+    const { platformFee, displayPrice } = await calculateDisplayPrice(sellerPrice);
+    data.sellerPrice = sellerPrice;
+    data.platformFee = platformFee;
+    data.displayPrice = displayPrice;
+    data.price = sellerPrice; // Keep `price` in sync with seller price for backward compatibility
   }
 
   // Auto-set stock status

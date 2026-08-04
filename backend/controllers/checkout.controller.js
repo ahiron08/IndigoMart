@@ -14,7 +14,7 @@ export const previewCheckout = asyncHandler(async (request, response) => {
 });
 
 export const createOrder = asyncHandler(async (request, response) => {
-  const { productId, quantity, addressId, paymentMethod, couponCode } = request.body;
+  const { productId, quantity, addressId, paymentMethod, couponCode, paymentReference, utrNumber } = request.body;
   const result = await placeOrder({
     productId,
     quantity: quantity || 1,
@@ -22,6 +22,7 @@ export const createOrder = asyncHandler(async (request, response) => {
     paymentMethod,
     userId: request.user.id,
     couponCode: couponCode || null,
+    paymentReference: paymentReference || utrNumber || null,
   });
   response.status(201).json({
     success: true,

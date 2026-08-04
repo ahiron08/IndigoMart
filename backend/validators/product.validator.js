@@ -14,6 +14,22 @@ const productFields = {
     const n = Number(val);
     return isNaN(n) ? undefined : n;
   }, z.number().positive('Price must be greater than 0')).optional(),
+  sellerPrice: z.preprocess((val) => { 
+    if (val === '' || val == null || val === undefined) return undefined;
+    const n = Number(val);
+    return isNaN(n) ? undefined : n;
+  }, z.number().positive('Seller price must be greater than 0').optional()),
+  platformFee: z.preprocess((val) => { 
+    if (val === '' || val == null || val === undefined) return undefined;
+    const n = Number(val);
+    return isNaN(n) ? undefined : n;
+  }, z.number().nonnegative('Platform fee cannot be negative').optional()),
+  displayPrice: z.preprocess((val) => { 
+    if (val === '' || val == null || val === undefined) return undefined;
+    const n = Number(val);
+    return isNaN(n) ? undefined : n;
+  }, z.number().positive('Display price must be greater than 0').optional()),
+  pickupPincode: z.string().trim().regex(/^[1-9][0-9]{5}$/, 'Pickup pincode must be a valid 6-digit Indian pincode').optional(),
   discountPrice: z.preprocess((val) => { 
     if (val === '' || val == null || val === undefined) return undefined;
     const n = Number(val);
@@ -163,6 +179,10 @@ export const createProductSchema = z.object({
       { message: 'Price is required and must be greater than 0.', path: ['price'] },
     )
     .refine(
+      (data) => data.pickupPincode == null || /^[1-9][0-9]{5}$/.test(data.pickupPincode),
+      { message: 'Pickup pincode must be a valid 6-digit Indian pincode.', path: ['pickupPincode'] },
+    )
+    .refine(
       (data) => data.stock != null && data.stock >= 0,
       { message: 'Stock is required and must be 0 or greater.', path: ['stock'] },
     ),
@@ -175,6 +195,10 @@ export const updateProductSchema = z.object({
     shortDescription: productFields.shortDescription.optional(),
     description: productFields.description.optional(),
     price: optionalNumber(z.number().nonnegative()),
+    sellerPrice: optionalNumber(z.number().positive()),
+    platformFee: optionalNumber(z.number().nonnegative()),
+    displayPrice: optionalNumber(z.number().positive()),
+    pickupPincode: z.string().trim().regex(/^[1-9][0-9]{5}$/, 'Pickup pincode must be a valid 6-digit Indian pincode').optional(),
     discountPrice: optionalNumber(z.number().nonnegative().nullable()),
     discountPercentage: optionalNumber(z.number().min(0).max(100)),
     taxIncluded: productFields.taxIncluded,

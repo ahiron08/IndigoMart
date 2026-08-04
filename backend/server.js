@@ -2,6 +2,7 @@ import "dotenv/config";
 import app from "./app.js";
 import { connectToDatabase, disconnectFromDatabase } from './config/database.js';
 import { env } from './config/env.js';
+import { seedDefaultSlabs } from './services/pricing.service.js';
 
 let server;
 let isShuttingDown = false;
@@ -38,6 +39,8 @@ process.on('uncaughtException', (error) => {
 const startServer = async () => {
   try {
     await connectToDatabase();
+    // Seed default pricing slabs if none exist
+    await seedDefaultSlabs();
     server = app.listen(env.PORT, () => {
       console.log(`IndigoMart API listening on port ${env.PORT} (${env.NODE_ENV})`);
     });

@@ -208,6 +208,7 @@ function CheckoutPage() {
         quantity: qty,
         addressId: selectedAddressId,
         paymentMethod: 'QR',
+        paymentReference: utrNumber || undefined,
       });
       navigate(`/orders/${result.data?.order?._id || result.order?._id}?success=true&payment=qr`);
     } catch (err) {

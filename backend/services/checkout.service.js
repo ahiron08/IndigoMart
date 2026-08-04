@@ -82,7 +82,8 @@ export const calculateCheckout = async ({ productId, quantity, deliveryPincode, 
   }
 
   const seller = product.creator;
-  const pickupPincode = seller.pickupPincode || seller.pinCode || '785001';
+  // Use product-level pickup pincode first, fall back to seller's pincode
+  const pickupPincode = product.pickupPincode || seller.pickupPincode || seller.pinCode || '785001';
   const qty = quantity || 1;
 
   // Check serviceability
@@ -105,9 +106,14 @@ export const calculateCheckout = async ({ productId, quantity, deliveryPincode, 
   const sellerPrice = (product.discountPrice || product.price) * qty;
   const pricing = await calculateTotalPrice(sellerPrice, shipping.charge);
 
+  // Use stored display price and platform fee for new products
+  const unitDisplayPrice = product.displayPrice ?? (product.discountPrice || product.price) + pricing.platformMargin;
+  const unitPlatformFee = product.platformFee ?? pricing.platformMargin;
+  const customerSubtotal = unitDisplayPrice * qty;
+
   // Apply coupon if provided
-  const { coupon, discountAmount } = await validateAndApplyCoupon(couponCode, pricing.totalAmount);
-  const finalAmount = pricing.totalAmount - discountAmount;
+  const { coupon, discountAmount } = await validateAndApplyCoupon(couponCode, customerSubtotal + shipping.charge);
+  const finalAmount = customerSubtotal + shipping.charge - discountAmount;
 
   // Calculate estimated delivery
   const estimatedDays = shipping.estimatedDays || '3-5';
@@ -118,16 +124,13 @@ export const calculateCheckout = async ({ productId, quantity, deliveryPincode, 
   const estimatedMin = new Date(now.getTime() + minDays * 24 * 60 * 60 * 1000);
   const estimatedMax = new Date(now.getTime() + maxDays * 24 * 60 * 60 * 1000);
 
-  const customerPrice = (product.discountPrice || product.price) + pricing.platformMargin;
-  const customerOriginalPrice = product.price + pricing.platformMargin;
-
   return {
     product: {
       _id: product._id,
       title: product.title,
       image: product.images?.[0]?.url || '',
-      price: customerPrice,
-      originalPrice: customerOriginalPrice,
+      price: unitDisplayPrice,
+      originalPrice: unitDisplayPrice,
     },
     seller: {
       _id: seller._id,
@@ -147,12 +150,12 @@ export const calculateCheckout = async ({ productId, quantity, deliveryPincode, 
     },
     pricing: {
       sellerPrice,
-      customerSubtotal: sellerPrice + pricing.platformMargin,
-      platformMargin: pricing.platformMargin,
-      shippingCost: pricing.shippingCost,
+      customerSubtotal,
+      platformMargin: unitPlatformFee,
+      shippingCost: shipping.charge,
       discountAmount,
       totalAmount: finalAmount,
-      originalTotalAmount: pricing.totalAmount,
+      originalTotalAmount: customerSubtotal + shipping.charge,
     },
     coupon: coupon
       ? {
@@ -167,7 +170,7 @@ export const calculateCheckout = async ({ productId, quantity, deliveryPincode, 
 
 // ─── Place Order ──────────────────────────────────────────────────────────────
 
-export const placeOrder = async ({ productId, quantity, addressId, paymentMethod, userId, couponCode }) => {
+export const placeOrder = async ({ productId, quantity, addressId, paymentMethod, userId, couponCode, paymentReference }) => {
   const product = await Product.findById(productId)
     .populate('creator', 'name email phone shopName pickupName pickupPhone pickupAddress pickupLandmark pickupCity pickupState pickupPincode city state pinCode')
     .lean();
@@ -182,7 +185,8 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
 
   const seller = product.creator;
   const qty = quantity || 1;
-  const pickupPincode = seller.pickupPincode || seller.pinCode || '785001';
+  // Use product-level pickup pincode first, fall back to seller's pincode
+  const pickupPincode = product.pickupPincode || seller.pickupPincode || seller.pinCode || '785001';
   const dims = getDefaultDimensions(product);
 
   // Calculate shipping
@@ -199,12 +203,22 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
   const sellerPrice = (product.discountPrice || product.price) * qty;
   const pricing = await calculateTotalPrice(sellerPrice, shipping.charge);
 
+  // Use stored display price and platform fee for new products
+  const unitDisplayPrice = product.displayPrice ?? (product.discountPrice || product.price) + pricing.platformMargin;
+  const unitPlatformFee = product.platformFee ?? pricing.platformMargin;
+  const customerSubtotal = unitDisplayPrice * qty;
+
   // Apply coupon if provided
-  const { coupon, discountAmount } = await validateAndApplyCoupon(couponCode, pricing.totalAmount);
-  const finalAmount = pricing.totalAmount - discountAmount;
+  const { coupon, discountAmount } = await validateAndApplyCoupon(couponCode, customerSubtotal + shipping.charge);
+  const finalAmount = customerSubtotal + shipping.charge - discountAmount;
 
   // Check serviceability
   const serviceability = await checkServiceability(address.pincode, pickupPincode);
+
+  // Validate stock before creating the order
+  if (product.stock < qty) {
+    throw new AppError(`Only ${product.stock} unit(s) are currently available.`, 409);
+  }
 
   // Create order
   const order = await Order.create({
@@ -218,7 +232,7 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
         image: product.images?.[0]?.url || '',
         quantity: qty,
         sellerPrice: product.discountPrice || product.price,
-        platformMargin: pricing.platformMargin,
+        platformMargin: unitPlatformFee,
         shippingCost: shipping.charge,
         totalPrice: finalAmount,
       },
@@ -233,11 +247,14 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
       state: address.state,
       pincode: address.pincode,
     },
-    pickupAddress: getSellerPickupInfo(seller),
+    pickupAddress: {
+      ...getSellerPickupInfo(seller),
+      pincode: pickupPincode,
+    },
     pricing: {
       subtotal: sellerPrice,
-      customerSubtotal: sellerPrice + pricing.platformMargin,
-      platformMargin: pricing.platformMargin,
+      customerSubtotal,
+      platformMargin: unitPlatformFee,
       shippingCost: shipping.charge,
       discountAmount,
       totalAmount: finalAmount,
@@ -252,6 +269,7 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
     payment: {
       method: paymentMethod,
       status: paymentMethod === 'COD' ? 'Pending' : 'Verification Pending',
+      ...(paymentMethod === 'QR' && paymentReference ? { utrNumber: paymentReference } : {}),
     },
     status: paymentMethod === 'COD' ? 'Confirmed' : 'Order Placed',
   });
@@ -284,6 +302,9 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
     isServiceable: serviceability.isServiceable,
   });
 
+  // Reduce stock atomically after order is placed
+  await updateProductStock(product._id, qty);
+
   // Process payment
   if (paymentMethod === 'COD') {
     await initiateCODPayment({ order, buyer: userId, amount: finalAmount });
@@ -295,6 +316,46 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
   }
 
   return { order };
+};
+
+// ─── Stock Management ─────────────────────────────────────────────────────────
+
+/**
+ * Atomically reduce product stock after an order is placed.
+ * Prevents stock from going below zero and marks product as out of stock.
+ * @param {string} productId - The product to update.
+ * @param {number} quantity - Number of units to reduce.
+ * @returns {Promise<object|null>} The updated product or null if not found.
+ */
+export const updateProductStock = async (productId, quantity) => {
+  const qty = Math.max(1, Number(quantity) || 1);
+
+  // Atomic update: only decrement if stock >= qty
+  const product = await Product.findOneAndUpdate(
+    { _id: productId, stock: { $gte: qty } },
+    { $inc: { stock: -qty, orderCount: 1 } },
+    { new: true },
+  );
+
+  if (!product) {
+    // Check if product exists but has insufficient stock
+    const existing = await Product.findById(productId).select('stock');
+    if (existing && existing.stock < qty) {
+      throw new AppError(`Only ${existing.stock} unit(s) are currently available.`, 409);
+    }
+    throw new AppError('Product not found.', 404);
+  }
+
+  // Update stock status based on new stock level
+  let stockStatus = 'in_stock';
+  if (product.stock === 0) stockStatus = 'out_of_stock';
+  else if (product.stock <= 5) stockStatus = 'limited_stock';
+
+  if (product.stockStatus !== stockStatus) {
+    await Product.findByIdAndUpdate(productId, { stockStatus });
+  }
+
+  return product;
 };
 
 export default {
