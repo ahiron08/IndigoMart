@@ -80,6 +80,7 @@ function ProductFormPage() {
   const [newImageFiles, setNewImageFiles] = useState([]);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
+  const tagInputRef = useRef(null);
   const { categories, isLoading: categoriesLoading } = useCategories();
 
   useEffect(() => {
@@ -195,14 +196,21 @@ function ProductFormPage() {
     handleImageUpload(e.dataTransfer.files);
   };
 
+  const addTag = () => {
+    const value = tagInputRef.current?.value.trim().toLowerCase();
+    if (value && !formData.tags.includes(value)) {
+      setFormData((prev) => ({ ...prev, tags: [...prev.tags, value] }));
+    }
+    if (tagInputRef.current) {
+      tagInputRef.current.value = '';
+      tagInputRef.current.focus();
+    }
+  };
+
   const handleTagInput = (e) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      const value = e.target.value.trim().toLowerCase();
-      if (value && !formData.tags.includes(value)) {
-        setFormData((prev) => ({ ...prev, tags: [...prev.tags, value] }));
-      }
-      e.target.value = '';
+      addTag();
     }
   };
 
@@ -578,14 +586,18 @@ function ProductFormPage() {
           {/* Section 5: Tags */}
           <section className="rounded-2xl border border-indigo/10 bg-canvas p-6 sm:p-8">
             <h2 className="font-display text-2xl text-indigo">Product Tags</h2>
-            <p className="mt-1 text-sm text-muted">Add tags to help customers find your product. Press Enter to add.</p>
+            <p className="mt-1 text-sm text-muted">Add tags to help customers find your product. Press Enter or click Add Tag.</p>
             <div className="mt-6">
               <input
+                ref={tagInputRef}
                 className="form-input"
                 type="text"
                 placeholder="Type a tag and press Enter"
                 onKeyDown={handleTagInput}
               />
+              <button type="button" onClick={addTag} className="button-secondary mt-3">
+                <Plus size={15} /> Add Tag
+              </button>
               {formData.tags.length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {formData.tags.map((tag) => (
