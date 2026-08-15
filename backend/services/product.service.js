@@ -323,7 +323,25 @@ export const updateProduct = async (id, data, files, user) => {
   const newImages = files?.length
     ? await Promise.all(files.map((file) => uploadImage(file, `indigomart/products/${product.creator}`)))
     : [];
-  if (product.images.length + newImages.length > 10) {
+
+  // Existing images the seller chose to remove (Cloudinary public IDs)
+  const removedPublicIds = Array.isArray(data.removedImageIds) ? data.removedImageIds : [];
+  delete data.removedImageIds;
+  const removedSet = new Set(removedPublicIds);
+  // Only act on public IDs that actually belong to this product
+  const actuallyRemoved = product.images
+    .filter((image) => removedSet.has(image.publicId))
+    .map((image) => image.publicId);
+  if (removedSet.size > 0) {
+    // Remove from the product's image list
+    product.images = product.images.filter((image) => !removedSet.has(image.publicId));
+    // Keep count limit accurate based on the remaining images
+    const remainingCount = product.images.length + newImages.length;
+    if (remainingCount > 10) {
+      await deleteImages(newImages.map((image) => image.publicId));
+      throw new AppError('A product can contain at most 10 images.', 422);
+    }
+  } else if (product.images.length + newImages.length > 10) {
     await deleteImages(newImages.map((image) => image.publicId));
     throw new AppError('A product can contain at most 10 images.', 422);
   }
@@ -389,6 +407,12 @@ export const updateProduct = async (id, data, files, user) => {
 
   try {
     await product.save();
+
+    // Remove the Cloudinary files for images that are no longer referenced by
+    // the product, only after the database update has succeeded.
+    if (actuallyRemoved.length > 0) {
+      await deleteImages(actuallyRemoved);
+    }
 
     // Re-index product for semantic search asynchronously
     if (env.ENABLE_SEMANTIC_SEARCH) {

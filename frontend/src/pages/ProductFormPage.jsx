@@ -78,6 +78,7 @@ function ProductFormPage() {
   const [formData, setFormData] = useState(initialFormData);
   const [existingImages, setExistingImages] = useState([]);
   const [newImageFiles, setNewImageFiles] = useState([]);
+  const [removedImageIds, setRemovedImageIds] = useState([]);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
   const tagInputRef = useRef(null);
@@ -126,6 +127,7 @@ function ProductFormPage() {
         status: product.status || 'draft',
       });
       setExistingImages(product.images || []);
+      setRemovedImageIds([]);
     } catch (err) {
       console.error('Failed to load product:', err);
       setError(err.response?.data?.message || 'Could not load product. Please try again.');
@@ -178,6 +180,7 @@ function ProductFormPage() {
 
   const removeExistingImage = (publicId) => {
     setExistingImages((prev) => prev.filter((img) => img.publicId !== publicId));
+    setRemovedImageIds((prev) => (prev.includes(publicId) ? prev : [...prev, publicId]));
   };
 
   const handleDragOver = (e) => {
@@ -335,6 +338,11 @@ function ProductFormPage() {
       newImageFiles.forEach((image) => {
         submitData.append('images', image.file);
       });
+
+      // Add identifiers of existing images the seller removed
+      if (removedImageIds.length > 0) {
+        submitData.append('removedImageIds', JSON.stringify(removedImageIds));
+      }
 
       if (isEdit) {
         await api.patch('products/' + id, submitData);

@@ -5,6 +5,18 @@ const optionalNumber = (schema) =>
   z.preprocess((value) => (value === '' || value == null ? undefined : Number(value)), schema.optional());
 const categoryId = z.string().trim().min(1).max(140);
 
+// Comma-separated or JSON-encoded array of Cloudinary public IDs to remove
+const removedImageIds = z.preprocess((val) => {
+  if (Array.isArray(val)) return val;
+  if (typeof val !== 'string' || val === '') return [];
+  try {
+    const parsed = JSON.parse(val);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return val.split(',').map((id) => id.trim()).filter(Boolean);
+  }
+}, z.array(z.string()).optional());
+
 const productFields = {
   title: z.string().trim().min(2).max(160),
   shortDescription: z.string().trim().max(500).optional().default(''),
@@ -221,6 +233,7 @@ export const updateProductSchema = z.object({
     metaDescription: productFields.metaDescription.optional(),
     searchKeywords: productFields.searchKeywords.optional(),
     status: productFields.status.optional(),
+    removedImageIds,
   }).refine(
     (data) => data.discountPrice == null || data.discountPrice < (data.price ?? 0),
     { message: 'Discount price must be lower than the regular price.', path: ['discountPrice'] },
