@@ -142,10 +142,15 @@ function SellerOrdersPage() {
                         <span className="text-muted">{formatCurrency(item.sellerPrice)}</span>
                       </div>
                     ))}
+                    {order.status === 'Cancelled' && (
+                      <div className="mt-2 rounded-lg border border-clay/20 bg-clay/5 p-2 text-xs text-clay">
+                        <p>Status: Cancelled</p>
+                        {order.cancellation?.reason && <p>Reason: {order.cancellation.reason}</p>}
+                        {order.cancellation?.cancelledBy && <p className="capitalize">Cancelled by: {order.cancellation.cancelledBy}</p>}
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex-shrink-0 flex flex-col gap-2">
                   {order.shipping?.estimatedDelivery && (
                     <p className="text-xs text-muted text-right">
                       Est: {new Date(order.shipping.estimatedDelivery).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}

@@ -36,7 +36,7 @@ const page = (title, description, eyebrow) => (
   <RoutePage title={title} description={description} eyebrow={eyebrow} />
 );
 
-const dashboardSections = ['products', 'inventory', 'orders', 'analytics', 'revenue', 'users', 'categories', 'coupons', 'sellers', 'settings'];
+const dashboardSections = ['products', 'inventory', 'orders', 'refunds', 'analytics', 'revenue', 'users', 'categories', 'coupons', 'sellers', 'settings'];
 
 function AppRoutes() {
   return (
@@ -83,7 +83,7 @@ function AppRoutes() {
           <Route path="my-products/new" element={<ProductFormPage />} />
           <Route path="my-products/:id" element={<ProductFormPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          {dashboardSections.filter((section) => section !== 'users' && section !== 'categories' && section !== 'settings').map((section) => (
+          {dashboardSections.filter((section) => section !== 'users' && section !== 'categories' && section !== 'settings' && section !== 'refunds').map((section) => (
             <Route key={section} path={section} element={<DashboardSectionPage title={section[0].toUpperCase() + section.slice(1)} />} />
           ))}
         </Route>
@@ -93,7 +93,7 @@ function AppRoutes() {
         <Route path="creator" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          {dashboardSections.filter((section) => section !== 'users' && section !== 'categories' && section !== 'settings').map((section) => (
+          {dashboardSections.filter((section) => section !== 'users' && section !== 'categories' && section !== 'settings' && section !== 'refunds').map((section) => (
             <Route key={section} path={section} element={<DashboardSectionPage title={section[0].toUpperCase() + section.slice(1)} />} />
           ))}
         </Route>

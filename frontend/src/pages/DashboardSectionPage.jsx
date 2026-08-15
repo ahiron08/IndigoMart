@@ -5,6 +5,8 @@ import {
   Tags, Boxes, BarChart3, Loader2, AlertTriangle, TrendingUp,
 } from 'lucide-react';
 
+import { useAuth } from '@/context/AuthContext.jsx';
+import { getSellerOrders, updateOrderStatus } from '@/services/orders.js';
 import {
   getDashboardStats,
   getUsers, banUser, unbanUser, deleteUser,
@@ -14,6 +16,7 @@ import {
   getSellers, getSeller, approveSeller, rejectSeller, suspendSeller, activateSeller, deleteSeller,
   adminGetCategories, adminCreateCategory, adminUpdateCategory, adminDeleteCategory,
   getCoupons, createCoupon, updateCoupon, deleteCoupon,
+  getRefunds, processRefund,
 } from '@/services/admin.js';
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
@@ -378,6 +381,34 @@ function OrderDetailsModal({ order, onClose, onStatusChange, updating }) {
           <span className="text-xs text-muted">{formatDate(order.createdAt)}</span>
         </div>
 
+        {/* Cancellation Details */}
+        {order.cancellation?.cancelled && (
+          <div className="rounded-xl border border-clay/20 bg-clay/5 p-4">
+            <p className="text-xs font-semibold text-clay">Cancellation Details</p>
+            {order.cancellation?.reason && (
+              <p className="mt-1 text-sm">
+                <span className="text-muted">Reason:</span> {order.cancellation.reason}
+              </p>
+            )}
+            {order.cancellation?.comments && (
+              <p className="mt-1 text-sm">
+                <span className="text-muted">Comments:</span> {order.cancellation.comments}
+              </p>
+            )}
+            {order.cancellation?.cancelledBy && (
+              <p className="mt-1 text-sm">
+                <span className="text-muted">Cancelled by:</span> {order.cancellation.cancelledBy}
+              </p>
+            )}
+            {order.cancellation?.cancelledAt && (
+              <p className="mt-1 text-sm">
+                <span className="text-muted">Cancelled on:</span>{' '}
+                {new Date(order.cancellation.cancelledAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Buyer & Seller */}
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
@@ -565,19 +596,24 @@ function OrderDetailsModal({ order, onClose, onStatusChange, updating }) {
             className="rounded-lg border border-indigo/10 bg-canvas px-3 py-1.5 text-sm outline-none focus:border-indigo/30"
             value={order.status}
             onChange={(e) => onStatusChange(order._id, e.target.value)}
-            disabled={updating === order._id}
+            disabled={updating === order._id || order.status === 'Cancelled' || order.status === 'Delivered'}
           >
             {ORDER_STATUSES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </div>
+        {(order.status === 'Cancelled' || order.status === 'Delivered') && (
+          <p className="text-[11px] text-muted">No further status changes are allowed for this order.</p>
+        )}
       </div>
     </Modal>
   );
 }
 
 function OrdersSection() {
+  const { user } = useAuth();
+  const isSellerRole = user?.role === 'seller' || user?.role === 'creator';
   const [orders, setOrders] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [page, setPage] = useState(1);
@@ -592,6 +628,19 @@ function OrdersSection() {
     const params = { page, limit: 20 };
     if (statusFilter) params.status = statusFilter;
     if (search) params.orderNumber = search;
+
+    if (isSellerRole) {
+      // Seller sees only the orders containing their own products.
+      getSellerOrders(page, 20)
+        .then((result) => {
+          setOrders(result.orders || []);
+          setPagination(result.pagination);
+        })
+        .catch(() => notify('Failed to fetch orders.', 'error'))
+        .finally(() => setLoading(false));
+      return;
+    }
+
     getAllOrders(params)
       .then(({ data }) => {
         setOrders(data.data.orders);
@@ -601,12 +650,16 @@ function OrdersSection() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchOrders(); }, [page, statusFilter, search]);
+  useEffect(() => { fetchOrders(); }, [page, statusFilter, search, isSellerRole]);
 
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdating(orderId);
     try {
-      await adminUpdateOrderStatus(orderId, { status: newStatus });
+      if (isSellerRole) {
+        await updateOrderStatus(orderId, newStatus);
+      } else {
+        await adminUpdateOrderStatus(orderId, { status: newStatus });
+      }
       notify(`Order status updated to ${newStatus}.`);
       fetchOrders();
       if (viewingOrder?._id === orderId) {
@@ -647,9 +700,10 @@ function OrdersSection() {
               <tr>
                 <th className="p-4 font-medium">Order #</th>
                 <th className="p-4 font-medium">Buyer</th>
-                <th className="p-4 font-medium">Seller</th>
+                {!isSellerRole && <th className="p-4 font-medium">Seller</th>}
                 <th className="p-4 font-medium">Total</th>
                 <th className="p-4 font-medium">Status</th>
+                <th className="p-4 font-medium">Payment</th>
                 <th className="p-4 font-medium">Date</th>
                 <th className="p-4 font-medium text-right">Actions</th>
               </tr>
@@ -659,12 +713,23 @@ function OrdersSection() {
                 <tr key={order._id} className="border-b border-indigo/5 hover:bg-sand/20">
                   <td className="p-4 font-mono text-xs">{order.orderNumber}</td>
                   <td className="p-4 text-muted">{order.buyer?.name || '—'}</td>
-                  <td className="p-4 text-muted">{order.seller?.shopName || order.seller?.name || '—'}</td>
+                  {!isSellerRole && <td className="p-4 text-muted">{order.seller?.shopName || order.seller?.name || '—'}</td>}
                   <td className="p-4 font-medium">{formatCurrency(order.pricing?.totalAmount)}</td>
                   <td className="p-4">
                     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeColor(order.status)}`}>
                       {order.status}
                     </span>
+                    {order.cancellation?.cancelled && (
+                      <span className="mt-1 block text-[10px] text-clay">Reason: {order.cancellation.reason}</span>
+                    )}
+                  </td>
+                  <td className="p-4 text-xs text-muted">
+                    <span className={order.payment?.status === 'Paid' ? 'text-emerald-600' : 'text-amber-600'}>
+                      {order.payment?.method} · {order.payment?.status}
+                    </span>
+                    {order.payment?.refund?.status && order.payment?.refund?.status !== 'pending' && (
+                      <span className="block text-[10px] text-clay">Refund: {order.payment.refund.status}</span>
+                    )}
                   </td>
                   <td className="p-4 text-muted text-xs">{formatDate(order.createdAt)}</td>
                   <td className="p-4 text-right">
@@ -674,7 +739,8 @@ function OrdersSection() {
                         className="rounded-lg border border-indigo/10 bg-canvas px-2 py-1 text-xs outline-none"
                         value={order.status}
                         onChange={(e) => handleStatusChange(order._id, e.target.value)}
-                        disabled={updating === order._id}
+                        disabled={updating === order._id || order.status === 'Cancelled' || order.status === 'Delivered'}
+                        title={order.status === 'Cancelled' || order.status === 'Delivered' ? 'No further status changes allowed' : ''}
                       >
                         {ORDER_STATUSES.map((s) => (
                           <option key={s} value={s}>{s}</option>
@@ -699,6 +765,176 @@ function OrdersSection() {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION: Refund Requests (Admin)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const REFUND_STATUSES = ['pending', 'processing', 'refunded', 'rejected'];
+
+const refundStatusColor = (status) =>
+  status === 'refunded' ? 'bg-green-100 text-green-800' :
+  status === 'rejected' ? 'bg-red-100 text-red-800' :
+  status === 'processing' ? 'bg-blue-100 text-blue-800' :
+  'bg-amber-100 text-amber-800';
+
+function RefundRequestsSection() {
+  const [refunds, setRefunds] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState(null);
+  const [expanded, setExpanded] = useState(null);
+
+  const fetchRefunds = () => {
+    setLoading(true);
+    const params = { page, limit: 20 };
+    if (statusFilter) params.status = statusFilter;
+    getRefunds(params)
+      .then(({ data }) => {
+        setRefunds(data.data.refunds);
+        setPagination(data.data.pagination);
+      })
+      .catch(() => notify('Failed to fetch refunds.', 'error'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchRefunds(); }, [page, statusFilter]);
+
+  const handleProcess = async (refundId, action) => {
+    const confirmMsg = action === 'refund'
+      ? 'Mark this refund as completed? This records that the money was actually returned, it does not move money automatically.'
+      : 'Reject this refund request?';
+    if (!window.confirm(confirmMsg)) return;
+    setProcessingId(refundId);
+    try {
+      await processRefund(refundId, { action });
+      notify(`Refund ${action === 'refund' ? 'marked as refunded' : 'rejected'}.`);
+      fetchRefunds();
+      if (expanded === refundId) setExpanded(null);
+    } catch (err) {
+      notify(err.response?.data?.message || 'Failed to process refund.', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <p className="text-sm text-muted">QR-paid cancelled orders that require a refund.</p>
+        <select
+          className="ml-auto rounded-xl border border-indigo/10 bg-canvas px-4 py-2.5 text-sm outline-none focus:border-indigo/30"
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+        >
+          <option value="">All Statuses</option>
+          {REFUND_STATUSES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+      {loading ? <LoadingState /> : refunds.length === 0 ? <EmptyState message="No refund requests found." /> : (
+        <div className="space-y-4">
+          {refunds.map((refund) => {
+            const isRefunded = refund.status === 'refunded';
+            const isRejected = refund.status === 'rejected';
+            const isExpanded = expanded === refund._id;
+            return (
+              <div key={refund._id} className="rounded-2xl border border-indigo/10 bg-canvas p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <p className="font-display text-lg text-indigo">Refund #{refund.refundNumber}</p>
+                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${refundStatusColor(refund.status)}`}>
+                        {refund.status}
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-0.5 text-sm text-muted">
+                      <p>Order: <span className="font-mono">{refund.orderNumber}</span></p>
+                      <p>Customer: <span className="text-indigo">{refund.buyer?.name || '—'}</span></p>
+                      <p>Seller: <span>{refund.seller?.shopName || refund.seller?.name || '—'}</span></p>
+                      <p>Amount: <span className="font-medium text-indigo">{formatCurrency(refund.amount)}</span></p>
+                      <p>Payment: <span>{refund.paymentMethod}</span></p>
+                    </div>
+                  </div>
+<div className="flex flex-col items-end gap-2">
+                    <button
+                      className="text-xs text-indigo hover:underline"
+                      type="button"
+                      onClick={() => setExpanded(isExpanded ? null : refund._id)}
+                    >
+                      {isExpanded ? 'Hide details' : 'View details'}
+                    </button>
+                    {!isRefunded && !isRejected && (
+                      <div className="flex gap-2">
+                        <button
+                          className="button-primary text-xs px-3 py-1.5"
+                          type="button"
+                          disabled={processingId === refund._id}
+                          onClick={() => handleProcess(refund._id, 'refund')}
+                        >
+                          {processingId === refund._id ? '...' : 'Mark Refunded'}
+                        </button>
+                        <button
+                          className="button-secondary text-xs px-3 py-1.5 text-clay"
+                          type="button"
+                          disabled={processingId === refund._id}
+                          onClick={() => handleProcess(refund._id, 'reject')}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                    {isRefunded && (
+                      <p className="text-xs text-emerald-600">
+                        Processed {refund.processedAt ? formatDate(refund.processedAt) : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="mt-4 grid gap-3 rounded-xl border border-indigo/10 bg-sand/20 p-4 text-sm sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium text-muted">Reason</p>
+                      <p className="mt-0.5">{refund.cancellationReason || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted">Cancelled by</p>
+                      <p className="mt-0.5 capitalize">{refund.cancelledBy || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted">Cancellation date</p>
+                      <p className="mt-0.5">{refund.cancelledAt ? formatDate(refund.cancelledAt) : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted">Created</p>
+                      <p className="mt-0.5">{formatDate(refund.createdAt)}</p>
+                    </div>
+                    {refund.cancellationComments && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-medium text-muted">Comments</p>
+                        <p className="mt-0.5">{refund.cancellationComments}</p>
+                      </div>
+                    )}
+                    {refund.rejectionReason && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-medium text-muted">Rejection reason</p>
+                        <p className="mt-0.5">{refund.rejectionReason}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <Pagination pagination={pagination} onPageChange={setPage} />
+    </div>
+  );
+}
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: Categories
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1407,6 +1643,8 @@ function DashboardSectionPage({ title }) {
         return <ProductsSection />;
       case 'orders':
         return <OrdersSection />;
+      case 'refunds':
+        return <RefundRequestsSection />;
       case 'categories':
         return <CategoriesSection />;
       case 'coupons':

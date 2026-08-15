@@ -1,8 +1,8 @@
-import { ArrowLeft, Package, Truck, CreditCard, MapPin, CheckCircle, AlertCircle, Loader2, Smartphone, Check, Image as ImageIcon, X } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CreditCard, MapPin, CheckCircle, AlertCircle, Loader2, Smartphone, Check, Image as ImageIcon, X, XCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { getOrderById } from '@/services/orders.js';
+import { getOrderById, cancelOrder } from '@/services/orders.js';
 import { useAuth } from '@/context/AuthContext.jsx';
 import { formatCurrency } from '@/utils/format.js';
 import { generateQR } from '@/services/payment.js';
@@ -29,6 +29,19 @@ const statusColors = {
   'Cancelled': 'bg-clay/10 text-clay',
 };
 
+const CANCELLATION_REASONS = [
+  'Changed my mind',
+  'Ordered by mistake',
+  'Found a better price',
+  'Delivery is taking too long',
+  'Product is no longer needed',
+  'Payment issue',
+  'Other',
+];
+
+// Order statuses from which a customer may cancel their own order.
+const CANCELLABLE_STATUSES = ['Order Placed', 'Confirmed', 'Packed'];
+
 function OrderDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -50,6 +63,13 @@ function OrderDetailsPage() {
   const [screenshotPreview, setScreenshotPreview] = useState('');
   const [screenshotError, setScreenshotError] = useState('');
   const screenshotInputRef = useRef(null);
+
+  // Cancellation form state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelComments, setCancelComments] = useState('');
+  const [cancelError, setCancelError] = useState('');
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
   useEffect(() => {
     if (id) loadOrder();
@@ -91,6 +111,42 @@ function OrderDetailsPage() {
 
   const currentStepIndex = statusSteps.indexOf(order.status);
   const isCancelled = order.status === 'Cancelled';
+  const isCancellable = !isSeller && !isCancelled && CANCELLABLE_STATUSES.includes(order.status);
+
+  const openCancelModal = () => {
+    setCancelReason('');
+    setCancelComments('');
+    setCancelError('');
+    setShowCancelModal(true);
+  };
+
+  const closeCancelModal = () => {
+    if (cancelSubmitting) return;
+    setShowCancelModal(false);
+    setCancelError('');
+  };
+
+  const handleConfirmCancellation = async () => {
+    if (!cancelReason) {
+      setCancelError('Please select a cancellation reason.');
+      return;
+    }
+    if (cancelReason === 'Other' && !cancelComments.trim()) {
+      setCancelError('Please provide a custom reason when selecting "Other".');
+      return;
+    }
+    setCancelSubmitting(true);
+    setCancelError('');
+    try {
+      await cancelOrder(id, { reason: cancelReason, comments: cancelComments.trim() });
+      setShowCancelModal(false);
+      await loadOrder();
+    } catch (err) {
+      setCancelError(err.response?.data?.message || 'Could not cancel this order.');
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
 
   return (
     <div>
@@ -130,9 +186,36 @@ function OrderDetailsPage() {
             </h2>
             <div className="mt-6">
               {isCancelled ? (
-                <div className="rounded-xl bg-clay/10 p-4 text-center">
+                <div className="rounded-xl bg-clay/10 p-5 text-center">
                   <AlertCircle size={24} className="mx-auto text-clay" />
                   <p className="mt-2 font-medium text-clay">Order Cancelled</p>
+                  {order.cancellation?.reason && (
+                    <p className="mt-3 text-sm text-clay">
+                      <span className="font-medium">Reason:</span> {order.cancellation.reason}
+                    </p>
+                  )}
+                  {order.cancellation?.comments && (
+                    <p className="mt-1 text-sm text-clay">
+                      <span className="font-medium">Comments:</span> {order.cancellation.comments}
+                    </p>
+                  )}
+                  {order.cancellation?.cancelledAt && (
+                    <p className="mt-1 text-sm text-clay">
+                      <span className="font-medium">Cancelled on:</span>{' '}
+                      {new Date(order.cancellation.cancelledAt).toLocaleString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  )}
+                  {order.cancellation?.cancelledBy && (
+                    <p className="mt-1 text-xs text-clay/70">
+                      Cancelled by: {order.cancellation.cancelledBy}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-0">
@@ -222,7 +305,7 @@ function OrderDetailsPage() {
             </div>
 
             {/* QR Pay Button for unconfirmed orders */}
-            {order.payment?.method === 'QR' && order.payment?.status !== 'Paid' && (
+            {!isCancelled && order.payment?.method === 'QR' && order.payment?.status !== 'Paid' && (
               <div className="mt-6 rounded-xl border border-indigo/10 bg-sand/30 p-6 text-center">
                 <h3 className="font-display text-lg text-indigo">
                   <Smartphone size={18} className="inline mr-2" />
@@ -457,9 +540,112 @@ function OrderDetailsPage() {
                 {order.status}
               </span>
             </div>
+
+            {/* Cancellation Action */}
+            {isCancellable && (
+              <div className="mt-4 pt-4 border-t border-indigo/10">
+                <button
+                  className="w-full button-secondary text-clay border-clay/30 hover:bg-clay/10"
+                  type="button"
+                  onClick={openCancelModal}
+                >
+                  <XCircle size={16} className="inline mr-1" /> Cancel Order
+                </button>
+                <p className="mt-2 text-center text-[11px] text-muted">
+                  You can cancel before your order is packed/shipped.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Cancellation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeCancelModal}>
+          <div
+            className="w-full max-w-lg rounded-2xl bg-canvas p-6 shadow-xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-display text-xl text-indigo">Cancel Order</h2>
+              <button className="text-muted hover:text-clay" type="button" onClick={closeCancelModal} aria-label="Close">
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-sm font-medium text-indigo">Why are you cancelling?</p>
+
+            <div className="mt-3 space-y-2">
+              {CANCELLATION_REASONS.map((reason) => (
+                <label
+                  key={reason}
+                  className="flex items-center gap-3 rounded-xl border border-indigo/10 bg-sand/20 px-4 py-3 text-sm cursor-pointer hover:border-indigo/30"
+                >
+                  <input
+                    type="radio"
+                    name="cancelReason"
+                    value={reason}
+                    checked={cancelReason === reason}
+                    onChange={(e) => {
+                      setCancelReason(e.target.value);
+                      setCancelError('');
+                    }}
+                    className="accent-indigo"
+                  />
+                  {reason}
+                </label>
+              ))}
+            </div>
+
+            <label className="mt-4 block text-sm font-medium text-indigo">
+              Additional comments
+              {cancelReason === 'Other' && <span className="text-clay"> (required)</span>}
+            </label>
+            <textarea
+              className="form-input mt-1 min-h-[90px]"
+              value={cancelComments}
+              onChange={(e) => {
+                setCancelComments(e.target.value);
+                setCancelError('');
+              }}
+              placeholder={cancelReason === 'Other' ? 'Please describe your custom reason...' : 'Optional notes for the seller'}
+            />
+
+            {cancelError && (
+              <p className="mt-3 rounded-xl border border-clay/20 bg-clay/10 px-3 py-2 text-sm text-clay" role="alert">
+                {cancelError}
+              </p>
+            )}
+
+            <div className="mt-4 rounded-xl border border-indigo/10 bg-sand/20 p-4 text-xs text-muted">
+              <p className="font-medium text-indigo">What happens next?</p>
+              <ul className="mt-1.5 list-disc pl-5 space-y-0.5">
+                <li>Your order will be cancelled immediately.</li>
+                {order.payment?.method === 'QR' && order.payment?.status === 'Paid' && (
+                  <li>A refund request will be created for your QR payment.</li>
+                )}
+                <li>No further shipping or processing will occur.</li>
+              </ul>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button className="button-secondary" type="button" onClick={closeCancelModal}>
+                Keep Order
+              </button>
+              <button
+                className="button-primary bg-clay hover:bg-clay-dark"
+                type="button"
+                onClick={handleConfirmCancellation}
+                disabled={cancelSubmitting}
+              >
+                {cancelSubmitting ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
+                {cancelSubmitting ? 'Cancelling...' : 'Confirm Cancellation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

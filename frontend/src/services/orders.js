@@ -30,3 +30,8 @@ export const adminGetAllOrders = async (page = 1, limit = 50, status) => {
   const response = await api.get(`orders/admin/all?${params}`);
   return response.data.data;
 };
+
+export const cancelOrder = async (id, data) => {
+  const response = await api.post(`orders/${id}/cancel`, data);
+  return response.data;
+};

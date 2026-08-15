@@ -7,6 +7,7 @@ import {
   updateStatus,
   updateTracking,
   updateOrderPayment,
+  cancelOrderHandler,
 } from '../controllers/order.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
 import { uploadPaymentScreenshot } from '../middleware/upload.middleware.js';
@@ -18,6 +19,8 @@ router.use(authenticate);
 // Buyer routes
 router.get('/my', getMyOrders);
 router.get('/:id', getOrder);
+// Cancel own order (customer / buyer)
+router.post('/:id/cancel', cancelOrderHandler);
 
 // Seller routes
 router.get('/seller/list', authorize('seller', 'creator', 'admin'), getSellerOrderList);

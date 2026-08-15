@@ -65,6 +65,16 @@ const orderSchema = new mongoose.Schema(
       utrNumber: { type: String, default: '' },
       paymentScreenshot: { type: String, default: '' },
       paidAt: { type: Date },
+      // Refund state for paid orders that were cancelled (see Refund model too)
+      refund: {
+        status: {
+          type: String,
+          enum: ['pending', 'processing', 'refunded', 'rejected'],
+          default: 'pending',
+        },
+        processedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        processedAt: { type: Date },
+      },
     },
     shipping: {
       courierName: { type: String, default: '' },
@@ -87,6 +97,14 @@ const orderSchema = new mongoose.Schema(
         'Cancelled',
       ],
       default: 'Order Placed',
+    },
+    // Cancellation information (populated when an order is cancelled)
+    cancellation: {
+      cancelled: { type: Boolean, default: false },
+      reason: { type: String, trim: true, default: '' },
+      comments: { type: String, trim: true, maxlength: 1000, default: '' },
+      cancelledBy: { type: String, enum: ['customer', 'admin', 'seller'], default: 'customer' },
+      cancelledAt: { type: Date },
     },
     notes: { type: String, trim: true, maxlength: 500, default: '' },
     isDeleted: { type: Boolean, default: false },

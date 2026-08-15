@@ -17,7 +17,8 @@ const sellerLinks = [
 const adminLinks = [
   ['Overview', '.', Home],
   ['Sellers', 'sellers', Users], ['Products', 'products', Package],
-  ['Orders', 'orders', ShoppingBag], ['Categories', 'categories', Boxes],
+  ['Orders', 'orders', ShoppingBag], ['Refunds', 'refunds', CircleDollarSign],
+  ['Categories', 'categories', Boxes],
   ['Analytics', 'analytics', BarChart3],
   ['Coupons', 'coupons', Tags], ['Settings', 'settings', Settings],
 ];

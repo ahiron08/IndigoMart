@@ -92,6 +92,9 @@ function BuyerOrdersPage() {
                         {item.title} × {item.quantity}
                       </p>
                     ))}
+                    {order.status === 'Cancelled' && order.cancellation?.reason && (
+                      <p className="text-xs text-clay">Cancelled: {order.cancellation.reason}</p>
+                    )}
                   </div>
                   <div className="mt-3 flex items-center gap-4 text-xs text-muted">
                     <span>Total: <span className="font-medium text-indigo">{formatCurrency(order.pricing?.totalAmount)}</span></span>

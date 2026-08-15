@@ -5,6 +5,7 @@ import {
   getAllOrders,
   updateOrderStatus,
   updateShipmentTracking,
+  cancelOrder,
 } from '../services/order.service.js';
 import asyncHandler from '../utils/async-handler.js';
 import AppError from '../utils/app-error.js';
@@ -86,5 +87,20 @@ export const updateOrderPayment = asyncHandler(async (request, response) => {
     success: true,
     message: 'Payment details submitted for verification.',
     data: { order },
+  });
+});
+
+export const cancelOrderHandler = asyncHandler(async (request, response) => {
+  const { reason, comments } = request.body;
+  const result = await cancelOrder({
+    orderId: request.params.id,
+    userId: request.user.id,
+    reason,
+    comments,
+  });
+  response.status(200).json({
+    success: true,
+    message: 'Order cancelled successfully.',
+    data: result,
   });
 });

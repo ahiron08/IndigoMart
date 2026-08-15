@@ -52,6 +52,14 @@ export const getAllOrders = (params = {}) => api.get('/admin/orders', { params }
 
 export const adminUpdateOrderStatus = (id, data) => api.put(`/admin/order/${id}/status`, data);
 
+// ─── Refund Requests ──────────────────────────────────────────────────────────
+
+export const getRefunds = (params = {}) => api.get('/admin/refunds', { params });
+
+export const getRefund = (id) => api.get(`/admin/refunds/${id}`);
+
+export const processRefund = (id, data) => api.put(`/admin/refunds/${id}/process`, data);
+
 // ─── Categories ───────────────────────────────────────────────────────────────
 
 export const adminGetCategories = (params = {}) => api.get('/admin/categories', { params });

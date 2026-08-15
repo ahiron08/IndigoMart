@@ -49,11 +49,17 @@ export const getSellerOrders = asyncHandler(async (request, response) => {
   const limit = parseInt(request.query.limit, 10) || 20;
   const skip = (page - 1) * limit;
 
-  const filter = { 'items.creator': request.user.id };
+  const filter = { seller: request.user.id, isDeleted: { $ne: true } };
   if (request.query.status) filter.status = request.query.status;
 
   const [orders, total] = await Promise.all([
-    Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Order.find(filter)
+      .populate('buyer', 'name email phone')
+      .populate('items.product', 'title images slug')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
     Order.countDocuments(filter),
   ]);
 
@@ -71,14 +77,12 @@ export const getSellerDashboard = asyncHandler(async (request, response) => {
 
   const [totalProducts, pendingOrders, processingOrders, totalOrders, revenueResult] = await Promise.all([
     Product.countDocuments({ creator: sellerId }),
-    Order.countDocuments({ 'items.creator': sellerId, status: 'pending' }),
-    Order.countDocuments({ 'items.creator': sellerId, status: { $in: ['confirmed', 'processing', 'shipped'] } }),
-    Order.countDocuments({ 'items.creator': sellerId }),
+    Order.countDocuments({ seller: sellerId, status: { $in: ['Order Placed', 'Confirmed'] } }),
+    Order.countDocuments({ seller: sellerId, status: { $in: ['Packed', 'Picked Up', 'In Transit', 'Out for Delivery'] } }),
+    Order.countDocuments({ seller: sellerId, isDeleted: { $ne: true } }),
     Order.aggregate([
-      { $match: { 'items.creator': sellerId, status: 'delivered' } },
-      { $unwind: '$items' },
-      { $match: { 'items.creator': sellerId } },
-      { $group: { _id: null, total: { $sum: '$items.lineTotal' } } },
+      { $match: { seller: sellerId, status: 'Delivered' } },
+      { $group: { _id: null, total: { $sum: '$pricing.totalAmount' } } },
     ]),
   ]);
 
@@ -98,7 +102,7 @@ export const getSellerDashboard = asyncHandler(async (request, response) => {
 
 export const updateOrderStatus = asyncHandler(async (request, response) => {
   const { status } = request.body;
-  const validStatuses = ['confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+  const validStatuses = ['Confirmed', 'Packed', 'Picked Up', 'In Transit', 'Out for Delivery', 'Delivered', 'Cancelled'];
 
   if (!validStatuses.includes(status)) {
     response.status(400).json({ success: false, message: 'Invalid status.' });
@@ -107,7 +111,8 @@ export const updateOrderStatus = asyncHandler(async (request, response) => {
 
   const order = await Order.findOne({
     _id: request.params.id,
-    'items.creator': request.user.id,
+    seller: request.user.id,
+    isDeleted: { $ne: true },
   });
 
   if (!order) {
@@ -116,15 +121,18 @@ export const updateOrderStatus = asyncHandler(async (request, response) => {
   }
 
   order.status = status;
-  order.tracking.push({
-    status,
-    message: `Order status updated to ${status} by seller.`,
-    actor: request.user.id,
-    occurredAt: new Date(),
-  });
 
-  if (status === 'delivered') order.deliveredAt = new Date();
-  if (status === 'cancelled') order.cancelledAt = new Date();
+  if (status === 'Delivered') order.shipping.deliveredAt = new Date();
+  if (status === 'Picked Up') order.shipping.shippedAt = new Date();
+  if (status === 'Cancelled') {
+    order.cancellation = {
+      cancelled: true,
+      reason: order.cancellation?.reason || 'Cancelled by seller',
+      comments: order.cancellation?.comments || '',
+      cancelledBy: 'seller',
+      cancelledAt: new Date(),
+    };
+  }
 
   await order.save();
 

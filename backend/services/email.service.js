@@ -37,3 +37,30 @@ export const sendPasswordResetEmail = async ({ email, name, resetUrl }) => {
     html: `<p>Hello ${escapeHtml(name)},</p><p>Use the link below to reset your IndigoMart password. It expires in 15 minutes.</p><p><a href="${resetUrl}">Reset password</a></p>`,
   });
 };
+
+// Order cancellation notification. Uses the same transporter as the existing
+// email system. Never throws in non-production when SMTP is not configured so
+// that cancellation is never blocked by missing email credentials.
+export const sendOrderCancellationEmail = async ({ email, name, orderNumber, reason, comments }) => {
+  const mailer = getTransporter();
+  const reasonLine = reason ? `\nReason: ${reason}` : '';
+  const commentsLine = comments ? `\nComments: ${comments}` : '';
+  const text = `Hello ${name},\n\nYour order ${orderNumber} has been cancelled.${reasonLine}${commentsLine}\n\nIf you were charged, a refund will be initiated as applicable.\n\nThank you,\nIndigoMart`;
+
+  if (!mailer) {
+    if (env.NODE_ENV === 'production') {
+      // Best-effort: log instead of failing the cancellation flow.
+      console.log(`[email] Order cancellation for ${email}: ${orderNumber}`);
+      return;
+    }
+    console.log(`Order cancellation email for ${email}: ${orderNumber}`);
+    return;
+  }
+
+  await mailer.sendMail({
+    from: env.EMAIL_FROM,
+    to: email,
+    subject: `Order ${orderNumber} cancelled`,
+    text,
+  });
+};

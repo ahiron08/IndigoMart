@@ -40,6 +40,11 @@ import {
   validateCoupon,
 } from '../controllers/coupon.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
+import {
+  adminGetRefunds,
+  adminGetRefund,
+  adminProcessRefund,
+} from '../controllers/refund.controller.js';
 
 const router = Router();
 
@@ -75,6 +80,11 @@ router.put('/product/:id/unfeature', adminUnfeatureProduct);
 // ─── Orders ───────────────────────────────────────────────────────────────────
 router.get('/orders', getAllOrders);
 router.put('/order/:id/status', adminUpdateOrderStatus);
+
+// ─── Refund Requests ──────────────────────────────────────────────────────────
+router.get('/refunds', adminGetRefunds);
+router.get('/refunds/:id', adminGetRefund);
+router.put('/refunds/:id/process', adminProcessRefund);
 
 // ─── Categories ───────────────────────────────────────────────────────────────
 router.get('/categories', adminGetCategories);

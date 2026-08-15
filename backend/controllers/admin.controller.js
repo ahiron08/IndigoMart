@@ -475,6 +475,11 @@ export const adminUpdateOrderStatus = asyncHandler(async (request, response) => 
   if (status === 'Delivered' && !updateData['shipping.deliveredAt']) {
     updateData['shipping.deliveredAt'] = new Date();
   }
+  if (status === 'Cancelled') {
+    updateData['cancellation.cancelled'] = true;
+    updateData['cancellation.cancelledBy'] = 'admin';
+    updateData['cancellation.cancelledAt'] = new Date();
+  }
 
   const order = await Order.findByIdAndUpdate(request.params.id, updateData, {
     new: true,
