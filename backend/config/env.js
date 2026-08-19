@@ -35,6 +35,15 @@ const environmentSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   DELHIVERY_API_KEY: z.string().optional(),
+  // Active shipping engine: INTERNAL (default) | DELHIVERY | SHIPROCKET.
+  SHIPPING_PROVIDER: z
+    .enum(['INTERNAL', 'DELHIVERY', 'SHIPROCKET'])
+    .default('INTERNAL'),
+  // Warehouse/store pickup PIN used for all shipping estimates when set.
+  SHIPPING_ORIGIN_PINCODE: z
+    .string()
+    .regex(/^[1-9][0-9]{5}$/, 'SHIPPING_ORIGIN_PINCODE must be a valid 6-digit Indian pincode.')
+    .optional(),
   QR_UPI_ID: z.string().optional().default('indigomart@upi'),
   QR_PAYEE_NAME: z.string().optional().default('IndigoMart'),
   OPENAI_API_KEY: z.string().optional(),

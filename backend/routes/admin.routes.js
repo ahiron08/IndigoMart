@@ -40,11 +40,39 @@ import {
   validateCoupon,
 } from '../controllers/coupon.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
+import { validate } from '../middleware/validate.middleware.js';
+import {
+  createZoneSchema,
+  createZoneRuleSchema,
+  createRateSchema,
+  upsertPincodeSchema,
+  configSchema,
+} from '../validators/shipping.validator.js';
 import {
   adminGetRefunds,
   adminGetRefund,
   adminProcessRefund,
 } from '../controllers/refund.controller.js';
+import {
+  getShippingConfig,
+  updateConfig,
+  getZones,
+  createZone,
+  updateZone,
+  deleteZone,
+  getZoneRules,
+  createZoneRule,
+  updateZoneRule,
+  deleteZoneRule,
+  getRates,
+  createRate,
+  updateRate,
+  deleteRate,
+  getPincodes,
+  createOrUpdatePincode,
+  seedShipping,
+  getShippingStats,
+} from '../controllers/shipping-admin.controller.js';
 
 const router = Router();
 
@@ -107,5 +135,35 @@ router.get('/search/embeddings/stats', getEmbeddingStats);
 router.get('/search/embeddings/missing', getMissingEmbeddings);
 router.post('/search/embeddings/rebuild-all', rebuildAllEmbeddings);
 router.post('/search/embeddings/rebuild/:productId', rebuildProductEmbedding);
+
+// ─── Shipping Configuration ───────────────────────────────────────────────────
+router.get('/shipping/stats', getShippingStats);
+router.get('/shipping/config', getShippingConfig);
+router.put('/shipping/config', validate(configSchema), updateConfig);
+
+// ─── Shipping Zones (L / M / H / R) ───────────────────────────────────────────
+router.get('/shipping/zones', getZones);
+router.post('/shipping/zones', validate(createZoneSchema), createZone);
+router.put('/shipping/zones/:id', updateZone);
+router.delete('/shipping/zones/:id', deleteZone);
+
+// ─── Zone Rules (PIN → zone mapping) ──────────────────────────────────────────
+router.get('/shipping/zones/rules', getZoneRules);
+router.post('/shipping/zones/rules', validate(createZoneRuleSchema), createZoneRule);
+router.put('/shipping/zones/rules/:id', updateZoneRule);
+router.delete('/shipping/zones/rules/:id', deleteZoneRule);
+
+// ─── Rate Cards (zone + mode + weight slab → price) ───────────────────────────
+router.get('/shipping/rates', getRates);
+router.post('/shipping/rates', validate(createRateSchema), createRate);
+router.put('/shipping/rates/:id', updateRate);
+router.delete('/shipping/rates/:id', deleteRate);
+
+// ─── Pincodes ─────────────────────────────────────────────────────────────────
+router.get('/shipping/pincodes', getPincodes);
+router.post('/shipping/pincodes', validate(upsertPincodeSchema), createOrUpdatePincode);
+
+// ─── Seeding ──────────────────────────────────────────────────────────────────
+router.post('/shipping/seed', seedShipping);
 
 export default router;

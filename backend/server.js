@@ -3,6 +3,7 @@ import app from "./app.js";
 import { connectToDatabase, disconnectFromDatabase } from './config/database.js';
 import { env } from './config/env.js';
 import { seedDefaultSlabs } from './services/pricing.service.js';
+import { seedShippingDefaults } from './services/shipping/seed.js';
 
 let server;
 let isShuttingDown = false;
@@ -41,6 +42,8 @@ const startServer = async () => {
     await connectToDatabase();
     // Seed default pricing slabs if none exist
     await seedDefaultSlabs();
+    // Seed shipping zones/rates/config/pins if none exist (idempotent)
+    await seedShippingDefaults();
     server = app.listen(env.PORT, () => {
       console.log(`IndigoMart API listening on port ${env.PORT} (${env.NODE_ENV})`);
     });

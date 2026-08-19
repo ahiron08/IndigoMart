@@ -8,6 +8,9 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "test": "node --test tests/*.test.js",
+    "test:shipping": "node --test tests/shipping.test.js",
+    "seed:shipping": "node scripts/seedShipping.js",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {

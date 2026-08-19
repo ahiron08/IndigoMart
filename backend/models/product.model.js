@@ -19,8 +19,16 @@ const specificationSchema = new mongoose.Schema(
 
 const shippingDetailsSchema = new mongoose.Schema(
   {
+    // Raw product weight in kilograms.
     weight: { type: Number, min: 0 },
+    // Weight of the product as actually packed (preferred for billing).
+    packagedWeight: { type: Number, min: 0 },
     dimensions: {
+      length: { type: Number, min: 0 },
+      width: { type: Number, min: 0 },
+      height: { type: Number, min: 0 },
+    },
+    packagedDimensions: {
       length: { type: Number, min: 0 },
       width: { type: Number, min: 0 },
       height: { type: Number, min: 0 },

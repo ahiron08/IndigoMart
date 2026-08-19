@@ -1,206 +1,172 @@
-import { env } from '../config/env.js';
+import { resolveProvider } from './shipping/providers/index.js';
+import { runEstimate } from './shipping/engine.js';
+import { checkPincodeServiceability } from './shipping/pincode.service.js';
 import Shipment from '../models/shipment.model.js';
 
-const DEFAULT_WEIGHT = 0.5;
-const DEFAULT_LENGTH = 20;
-const DEFAULT_WIDTH = 15;
-const DEFAULT_HEIGHT = 10;
+/**
+ * Public shipping facade — the single entry point used by the router and the
+ * checkout service. It preserves the previous function signatures while
+ * delegating the actual math to the modular engine.
+ */
 
-const DELHIVERY_BASE_URL = 'https://track.delhivery.com';
-const DELHIVERY_API_KEY = env.DELHIVERY_API_KEY || '';
+// ─── Product dimension extraction (backwards compatible) ─────────────────────
 
-const shippingCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000;
-
-const getCacheKey = (pickupPincode, deliveryPincode, weight) =>
-  `${pickupPincode}-${deliveryPincode}-${weight}`;
-
-const getFromCache = (key) => {
-  const entry = shippingCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.timestamp > CACHE_TTL) {
-    shippingCache.delete(key);
-    return null;
-  }
-  return entry.data;
+export const getDefaultDimensions = (product) => {
+  const sd = product?.shippingDetails || {};
+  const dims = sd.dimensions || {};
+  return {
+    weight: sd.packagedWeight ?? sd.weight ?? 0.5,
+    length: dims.length || 20,
+    width: dims.width || 15,
+    height: dims.height || 10,
+  };
 };
 
-const setInCache = (key, data) => {
-  shippingCache.set(key, { data, timestamp: Date.now() });
-};
+/**
+ * Build the resolved item list for the engine from a set of products.
+ * Prefers packaged weight/dimensions over raw product shipping details.
+ */
+const resolveItems = (lineItems) =>
+  (lineItems || []).map(({ product, quantity }) => {
+    const sd = product?.shippingDetails || {};
+    return {
+      weight: sd.weight || sd.packagedWeight || 0,
+      packagedWeight: sd.packagedWeight,
+      dimensions: sd.dimensions || {},
+      packagedDimensions: sd.packagedDimensions,
+      quantity: Math.max(1, Number(quantity) || 1),
+    };
+  });
+
+// ─── Serviceability (backwards compatible) ───────────────────────────────────
 
 export const checkServiceability = async (deliveryPincode, pickupPincode) => {
-  const cacheKey = `svc-${pickupPincode}-${deliveryPincode}`;
-  const cached = getFromCache(cacheKey);
-  if (cached) return cached;
-
-  if (!DELHIVERY_API_KEY) {
-    const result = { isServiceable: true, message: 'All India delivery available.', estimatedDays: '3-5' };
-    setInCache(cacheKey, result);
-    return result;
-  }
-
-  try {
-    const response = await fetch(
-      `${DELHIVERY_BASE_URL}/api/pin-codes/json/?filter_codes=${deliveryPincode}`,
-      {
-        headers: { Authorization: `Token ${DELHIVERY_API_KEY}` },
-        signal: AbortSignal.timeout(5000),
-      },
-    );
-
-    if (!response.ok) {
-      return { isServiceable: true, message: 'Serviceability check unavailable, proceeding with default.', estimatedDays: '3-5' };
-    }
-
-    const data = await response.json();
-    const isServiceable = data?.delivery_codes?.some(
-      (c) => c?.postal_code?.pin === deliveryPincode && c?.postal_code?.pre_paid === 'Y',
-    );
-
-    const result = {
-      isServiceable: !!isServiceable,
-      message: isServiceable ? 'Delivery available.' : 'Delivery not available to this pincode.',
-      estimatedDays: '3-5',
+  if (!deliveryPincode || !/^[1-9][0-9]{5}$/.test(String(deliveryPincode).trim())) {
+    return {
+      isServiceable: false,
+      message: 'Invalid delivery pincode.',
+      estimatedDays: '—',
     };
-    setInCache(cacheKey, result);
-    return result;
-  } catch (error) {
-    console.error('Delhivery serviceability check failed:', error.message);
-    return { isServiceable: true, message: 'Serviceability check unavailable, proceeding with default.', estimatedDays: '3-5' };
   }
+
+  const origin = (pickupPincode || '785001').trim();
+  const result = await checkPincodeServiceability(origin, deliveryPincode);
+
+  return {
+    isServiceable: result.success,
+    message: result.success
+      ? 'Delivery available.'
+      : result.error === 'DESTINATION_NOT_SERVICEABLE'
+        ? 'Delivery not available to this pincode.'
+        : 'Delivery details unavailable for this pincode.',
+    estimatedDays: '3-5',
+    codAvailable: result.codAvailable,
+  };
 };
+
+// ─── Legacy single-product charge (used by checkout) ─────────────────────────
 
 export const calculateShippingCharge = async ({
-  pickupPincode,
-  deliveryPincode,
-  weight = DEFAULT_WEIGHT,
-  length = DEFAULT_LENGTH,
-  width = DEFAULT_WIDTH,
-  height = DEFAULT_HEIGHT,
-}) => {
-  const cacheKey = getCacheKey(pickupPincode, deliveryPincode, weight);
-  const cached = getFromCache(cacheKey);
-  if (cached) return cached;
-
-  if (!DELHIVERY_API_KEY) {
-    const baseRate = 50;
-    const weightCharge = Math.max(0, (weight - 0.5)) * 30;
-    const regionCharge = pickupPincode?.startsWith(deliveryPincode?.charAt(0)) ? 0 : 20;
-    const totalCharge = Math.round(baseRate + weightCharge + regionCharge);
-
-    const result = {
-      charge: totalCharge,
-      currency: 'INR',
-      estimatedDays: '3-5',
-      courierName: 'Standard Courier',
-      isCalculated: true,
-    };
-    setInCache(cacheKey, result);
-    return result;
-  }
-
-  try {
-    const volumetricWeight = (length * width * height) / 5000;
-    const chargeableWeight = Math.max(weight, volumetricWeight);
-
-    const params = new URLSearchParams({
-      md: 'S',
-      ss: 'Delivered',
-      d_pin: deliveryPincode,
-      o_pin: pickupPincode,
-      dg: 'N',
-      pt: 'NDR',
-      weight: String(Math.ceil(chargeableWeight * 1000)),
-      shipment_length: String(Math.ceil(length)),
-      shipment_width: String(Math.ceil(width)),
-      shipment_height: String(Math.ceil(height)),
-    });
-
-    const response = await fetch(
-      `${DELHIVERY_BASE_URL}/api/kinko/v1/invoice/charges/.json?${params}`,
-      {
-        headers: { Authorization: `Token ${DELHIVERY_API_KEY}` },
-        signal: AbortSignal.timeout(5000),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Delhivery API returned ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    const result = {
-      charge: Math.round(data?.total_amount?.value || 75),
-      currency: 'INR',
-      estimatedDays: data?.estimated_days || '3-5',
-      courierName: data?.courier_name || 'Delhivery',
-      isCalculated: true,
-    };
-    setInCache(cacheKey, result);
-    return result;
-  } catch (error) {
-    console.error('Delhivery shipping calculation failed:', error.message);
-    const fallbackCharge = 75;
-    const result = {
-      charge: fallbackCharge,
-      currency: 'INR',
-      estimatedDays: '3-5',
-      courierName: 'Standard Courier',
-      isCalculated: false,
-    };
-    setInCache(cacheKey, result);
-    return result;
-  }
-};
-
-export const getDefaultDimensions = (product) => ({
-  weight: product?.shippingDetails?.weight || DEFAULT_WEIGHT,
-  length: product?.shippingDetails?.dimensions?.length || DEFAULT_LENGTH,
-  width: product?.shippingDetails?.dimensions?.width || DEFAULT_WIDTH,
-  height: product?.shippingDetails?.dimensions?.height || DEFAULT_HEIGHT,
-});
-
-export const createShipmentRecord = async ({
-  order,
-  seller,
   pickupPincode,
   deliveryPincode,
   weight,
   length,
   width,
   height,
-  shippingCharge,
-  estimatedDelivery,
-  courierName,
-  isServiceable,
 }) => {
+  const items = [
+    {
+      weight: Number(weight) || 0.5,
+      packagedWeight: Number(weight) || undefined,
+      dimensions: { length, width, height },
+      packagedDimensions: { length, width, height },
+      quantity: 1,
+    },
+  ];
+
+  const estimate = await runEstimate({
+    originPincode: pickupPincode,
+    destinationPincode: deliveryPincode,
+    items,
+    paymentMethod: 'PREPAID',
+    orderValue: 0,
+    shippingMode: 'SURFACE',
+    carrier: 'INTERNAL',
+    provider: 'INTERNAL',
+    isExternal: false,
+  });
+
+  const { min, max } = estimate.estimatedDeliveryDays;
+  return {
+    charge: estimate.totalShippingCharge,
+    currency: estimate.currency,
+    estimatedDays: `${min}-${max}`,
+    courierName: 'Standard Courier',
+    isCalculated: true,
+    breakdown: estimate.breakdown,
+  };
+};
+
+// ─── Full multi-item estimate (new primary API) ──────────────────────────────
+
+/**
+ * Estimate shipping charges for a multi-item shipment using the configured
+ * provider (INTERNAL by default). Product shipping data must be resolved
+ * server-side before calling this — nothing weight/price/zone related is ever
+ * trusted from the client.
+ *
+ * @param {object} params
+ * @param {string} params.originPincode
+ * @param {string} params.destinationPincode
+ * @param {Array<{product:object, quantity:number}>} params.items
+ * @param {string} [params.paymentMethod] - PREPAID | COD
+ * @param {number} [params.orderValue]
+ * @param {string} [params.shippingMode] - SURFACE | EXPRESS
+ * @param {string} [params.providerName] - optional provider override
+ * @returns {Promise<object>} Estimate payload (see engine.runEstimate).
+ */
+export const estimateShipping = async (params = {}) => {
+  const provider = resolveProvider(params.providerName);
+  const resolvedItems = resolveItems(params.items || []);
+  return provider.calculateRate({
+    originPincode: params.originPincode,
+    destinationPincode: params.destinationPincode,
+    items: resolvedItems,
+    paymentMethod: params.paymentMethod,
+    orderValue: params.orderValue,
+    shippingMode: params.shippingMode,
+    isExternal: provider.name !== 'INTERNAL',
+  });
+};
+
+// ─── Shipment records (backwards compatible) ─────────────────────────────────
+
+export const createShipmentRecord = async (fields) => {
   return Shipment.create({
-    order,
-    seller,
-    pickupPincode,
-    deliveryPincode,
-    weight,
-    length,
-    width,
-    height,
-    shippingCharge,
-    estimatedDelivery,
-    courierName,
-    isServiceable,
-    serviceabilityMessage: isServiceable ? 'Serviceable' : 'Not serviceable',
+    order: fields.order,
+    seller: fields.seller,
+    pickupPincode: fields.pickupPincode,
+    deliveryPincode: fields.deliveryPincode,
+    weight: fields.weight,
+    length: fields.length,
+    width: fields.width,
+    height: fields.height,
+    shippingCharge: fields.shippingCharge,
+    estimatedDelivery: fields.estimatedDelivery,
+    courierName: fields.courierName,
+    isServiceable: fields.isServiceable,
+    serviceabilityMessage: fields.isServiceable ? 'Serviceable' : 'Not serviceable',
     status: 'Pending',
   });
 };
 
-export const getShipmentByOrder = (orderId) =>
-  Shipment.findOne({ order: orderId }).lean();
+export const getShipmentByOrder = (orderId) => Shipment.findOne({ order: orderId }).lean();
 
 export default {
+  getDefaultDimensions,
   checkServiceability,
   calculateShippingCharge,
-  getDefaultDimensions,
+  estimateShipping,
   createShipmentRecord,
   getShipmentByOrder,
 };
