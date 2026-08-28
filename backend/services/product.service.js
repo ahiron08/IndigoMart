@@ -291,7 +291,7 @@ export const createProduct = async (data, files, creatorId) => {
       status: data.status || 'draft',
       isApproved: data.status === 'published' ? true : false,
       minOrderQuantity: data.minOrderQuantity || 1,
-      maxOrderQuantity: data.maxOrderQuantity || 99,
+      maxOrderQuantity: data.maxOrderQuantity || 1,
     });
 
     // Index product for semantic search asynchronously

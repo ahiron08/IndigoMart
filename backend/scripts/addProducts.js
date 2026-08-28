@@ -426,7 +426,7 @@ const addProducts = async () => {
         status: "published",
         isApproved: true,
         minOrderQuantity: productData.minOrderQuantity || 1,
-        maxOrderQuantity: productData.maxOrderQuantity || 99,
+        maxOrderQuantity: productData.maxOrderQuantity || 1,
       });
 
       console.log(`✅ Created product in "${category.name}": ${product.title} (₹${product.price})`);

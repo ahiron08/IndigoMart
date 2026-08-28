@@ -83,7 +83,7 @@ function CartPage() {
                     <div className="flex items-center rounded-full border border-indigo/15">
                       <button className="grid h-9 w-9 place-items-center" type="button" disabled={isPending || item.quantity <= 1} onClick={() => updateQuantity(product._id, item.quantity - 1)} aria-label={`Decrease ${product.title} quantity`}><Minus size={13} /></button>
                       <span className="w-7 text-center text-xs">{item.quantity}</span>
-                      <button className="grid h-9 w-9 place-items-center" type="button" disabled={isPending || item.quantity >= product.stock || item.quantity >= 99} onClick={() => updateQuantity(product._id, item.quantity + 1)} aria-label={`Increase ${product.title} quantity`}><Plus size={13} /></button>
+                      <button className="grid h-9 w-9 place-items-center" type="button" disabled={isPending || item.quantity >= product.stock || item.quantity >= (product.maxOrderQuantity ?? 99)} onClick={() => updateQuantity(product._id, item.quantity + 1)} aria-label={`Increase ${product.title} quantity`}><Plus size={13} /></button>
                     </div>
                     <div className="text-right"><p className="text-sm font-medium">{formatCurrency(item.lineTotal)}</p><p className="mt-1 text-[10px] text-muted">{formatCurrency(item.unitPrice)} each</p></div>
                   </div>

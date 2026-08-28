@@ -167,7 +167,7 @@ function ProductDetailsPage() {
               <div className="flex items-center rounded-full border border-indigo/15">
                 <button className="grid h-10 w-10 place-items-center" type="button" disabled={quantity <= 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))} aria-label="Decrease quantity"><Minus size={14} /></button>
                 <span className="w-8 text-center text-xs">{quantity}</span>
-                <button className="grid h-10 w-10 place-items-center" type="button" disabled={product.stock === 0 || quantity >= product.stock || quantity >= 99} onClick={() => setQuantity((value) => Math.min(product.stock, 99, value + 1))} aria-label="Increase quantity"><Plus size={14} /></button>
+                <button className="grid h-10 w-10 place-items-center" type="button" disabled={product.stock === 0 || quantity >= product.stock || quantity >= (product.maxOrderQuantity ?? 99)} onClick={() => setQuantity((value) => Math.min(product.stock, product.maxOrderQuantity ?? 99, value + 1))} aria-label="Increase quantity"><Plus size={14} /></button>
               </div>
             </div>
             <button className="button-primary mt-5 w-full" type="button" disabled={product.stock === 0 || status.cart === 'loading'} onClick={addToCart}>

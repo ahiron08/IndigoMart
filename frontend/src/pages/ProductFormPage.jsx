@@ -46,7 +46,7 @@ const initialFormData = {
   codAvailable: true,
   stock: '',
   minOrderQuantity: 1,
-  maxOrderQuantity: 99,
+  maxOrderQuantity: 1,
   stockStatus: 'in_stock',
   tags: [],
   specifications: [],
@@ -114,7 +114,7 @@ function ProductFormPage() {
         codAvailable: product.codAvailable ?? true,
         stock: product.stock?.toString() || '',
         minOrderQuantity: product.minOrderQuantity || 1,
-        maxOrderQuantity: product.maxOrderQuantity || 99,
+        maxOrderQuantity: product.maxOrderQuantity || 1,
         stockStatus: product.stockStatus || 'in_stock',
         tags: product.tags || [],
         specifications: product.specifications || [],
@@ -536,7 +536,7 @@ function ProductFormPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium">Maximum Order Quantity</label>
-                  <input className="form-input mt-2" name="maxOrderQuantity" type="number" min="1" value={formData.maxOrderQuantity} onChange={(e) => handleInputChange('maxOrderQuantity', parseInt(e.target.value) || 99)} />
+                  <input className="form-input mt-2" name="maxOrderQuantity" type="number" min="1" value={formData.maxOrderQuantity} onChange={(e) => handleInputChange('maxOrderQuantity', parseInt(e.target.value) || 1)} />
                 </div>
               </div>
             </div>

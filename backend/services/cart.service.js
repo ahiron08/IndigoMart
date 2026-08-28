@@ -4,7 +4,7 @@ import User from '../models/user.model.js';
 import AppError from '../utils/app-error.js';
 import { enrichWithCustomerPrice } from './pricing.service.js';
 
-const productSelection = 'title slug price discountPrice images stock brand isApproved';
+const productSelection = 'title slug price discountPrice images stock brand isApproved minOrderQuantity maxOrderQuantity';
 
 const getOrCreateCart = async (userId) => {
   const cart = await Cart.findOneAndUpdate(
@@ -77,10 +77,14 @@ export const addCartItem = async (userId, productId, quantity) => {
   const existingItem = cart.items.find((item) => item.product.equals(productId));
   const requestedQuantity = (existingItem?.quantity || 0) + quantity;
 
+  const maxOrder = product.maxOrderQuantity ?? 99;
+
   if (requestedQuantity > product.stock) {
     throw new AppError(`Only ${product.stock} unit(s) are currently available.`, 409);
   }
-  if (requestedQuantity > 99) throw new AppError('Cart quantity cannot exceed 99.', 422);
+  if (requestedQuantity > maxOrder) {
+    throw new AppError(`Maximum order quantity for this product is ${maxOrder}.`, 422);
+  }
 
   if (existingItem) existingItem.quantity = requestedQuantity;
   else cart.items.push({ product: productId, quantity });
@@ -92,7 +96,9 @@ export const updateCartItem = async (userId, productId, quantity) => {
   const [cart, product] = await Promise.all([getOrCreateCart(userId), requirePurchasableProduct(productId)]);
   const item = cart.items.find((candidate) => candidate.product.equals(productId));
   if (!item) throw new AppError('Product is not in the cart.', 404);
+  const maxOrder = product.maxOrderQuantity ?? 99;
   if (quantity > product.stock) throw new AppError(`Only ${product.stock} unit(s) are currently available.`, 409);
+  if (quantity > maxOrder) throw new AppError(`Maximum order quantity for this product is ${maxOrder}.`, 422);
 
   item.quantity = quantity;
   await cart.save();

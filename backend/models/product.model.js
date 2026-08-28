@@ -91,7 +91,7 @@ const productSchema = new mongoose.Schema(
     sku: { type: String, trim: true, maxlength: 100, default: '' },
     stock: { type: Number, required: true, min: 0, default: 0 },
     minOrderQuantity: { type: Number, min: 1, default: 1 },
-    maxOrderQuantity: { type: Number, min: 1, default: 99 },
+    maxOrderQuantity: { type: Number, min: 1, default: 1 },
     stockStatus: { type: String, enum: ['in_stock', 'limited_stock', 'out_of_stock'], default: 'in_stock' },
     ratings: {
       average: { type: Number, min: 0, max: 5, default: 0 },
