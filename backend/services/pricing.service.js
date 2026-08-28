@@ -83,9 +83,9 @@ export const calculateDisplayPrice = async (sellerPrice) => {
 /**
  * Adds customer-facing price fields to an array of product documents.
  * Each product receives:
- *   - platformMargin: the margin applied to the effective (discounted) price
- *   - customerPrice: effective price + margin (what buyers see)
- *   - customerOriginalPrice: original price + margin (for strikethrough display)
+ *   - platformMargin: the margin applied to reach customerPrice (what the platform earns)
+ *   - customerPrice: the final price a buyer pays (includes platform fee)
+ *   - customerOriginalPrice: pre-discount price including platform fee (for strikethrough)
  */
 export const enrichWithCustomerPrice = async (products) => {
   if (!Array.isArray(products) || products.length === 0) return products || [];
@@ -97,18 +97,42 @@ export const enrichWithCustomerPrice = async (products) => {
     const discountPrice = product?.discountPrice ?? null;
     const effectivePrice = discountPrice ?? price;
 
-    // Use stored displayPrice if available (new products), otherwise calculate
     const storedDisplayPrice = product?.displayPrice ?? null;
-    const storedPlatformFee = product?.platformFee ?? null;
+    const storedPlatformFee = product?.platformFee;
 
-    const margin = storedPlatformFee ?? getMarginForPrice(effectivePrice, slabs);
+    // Calculate margins from the active pricing slabs
+    const calculatedMargin = getMarginForPrice(effectivePrice, slabs);
     const originalMargin = getMarginForPrice(price, slabs);
+
+    // Use the stored platform fee ONLY when it was explicitly set (> 0).
+    // Products created before the platform-fee system (or migrated without a
+    // recalculation) have platformFee = 0 — the Mongoose schema default.
+    // The ?? operator treats 0 as a valid value, so the calculated margin is
+    // silently skipped. This guard ensures the fee is always computed.
+    const hasStoredFee = storedPlatformFee != null && storedPlatformFee > 0;
+    const margin = hasStoredFee ? storedPlatformFee : calculatedMargin;
+
+    // When a discount is active the customer pays the discounted price plus
+    // the margin that applies to *that* discounted price — NOT the stored
+    // displayPrice (which is the pre-discount total).
+    const hasDiscount = discountPrice != null;
+    const customerPrice = hasDiscount
+      ? effectivePrice + calculatedMargin
+      : (storedDisplayPrice ?? effectivePrice + margin);
+
+    // platformMargin should match the margin embedded in customerPrice so
+    // that sellerPrice = customerPrice - platformMargin yields the correct
+    // seller payout.
+    const platformMargin = hasDiscount ? calculatedMargin : margin;
+
+    // Original (pre-discount) customer price for strikethrough display.
+    const customerOriginalPrice = storedDisplayPrice ?? price + originalMargin;
 
     return {
       ...product,
-      platformMargin: margin,
-      customerPrice: storedDisplayPrice ?? effectivePrice + margin,
-      customerOriginalPrice: storedDisplayPrice ?? price + originalMargin,
+      platformMargin,
+      customerPrice,
+      customerOriginalPrice,
     };
   });
 };

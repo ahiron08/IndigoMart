@@ -106,9 +106,20 @@ export const calculateCheckout = async ({ productId, quantity, deliveryPincode, 
   const sellerPrice = (product.discountPrice || product.price) * qty;
   const pricing = await calculateTotalPrice(sellerPrice, shipping.charge);
 
-  // Use stored display price and platform fee for new products
-  const unitDisplayPrice = product.displayPrice ?? (product.discountPrice || product.price) + pricing.platformMargin;
-  const unitPlatformFee = product.platformFee ?? pricing.platformMargin;
+  // Derive the per-unit customer price and platform fee consistent with what
+  // the product page shows via enrichWithCustomerPrice:
+  //  - If discounted, the customer pays the discounted price + the margin
+  //    computed on that discounted price.
+  //  - Otherwise use the stored displayPrice (or fall back to seller price +
+  //    computed margin).
+  const perUnitPrice = product.discountPrice ?? product.price;
+  const usesCalculatedMargin = !(product.platformFee != null && product.platformFee > 0);
+  const unitPlatformFee = usesCalculatedMargin
+    ? pricing.platformMargin / qty
+    : product.platformFee;
+  const unitDisplayPrice = product.discountPrice != null
+    ? product.discountPrice + unitPlatformFee
+    : (product.displayPrice ?? perUnitPrice + unitPlatformFee);
   const customerSubtotal = unitDisplayPrice * qty;
 
   // Apply coupon if provided
@@ -203,9 +214,20 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
   const sellerPrice = (product.discountPrice || product.price) * qty;
   const pricing = await calculateTotalPrice(sellerPrice, shipping.charge);
 
-  // Use stored display price and platform fee for new products
-  const unitDisplayPrice = product.displayPrice ?? (product.discountPrice || product.price) + pricing.platformMargin;
-  const unitPlatformFee = product.platformFee ?? pricing.platformMargin;
+  // Derive the per-unit customer price and platform fee consistent with what
+  // the product page shows via enrichWithCustomerPrice:
+  //  - If discounted, the customer pays the discounted price + the margin
+  //    computed on that discounted price.
+  //  - Otherwise use the stored displayPrice (or fall back to seller price +
+  //    computed margin).
+  const perUnitPrice = product.discountPrice ?? product.price;
+  const usesCalculatedMargin = !(product.platformFee != null && product.platformFee > 0);
+  const unitPlatformFee = usesCalculatedMargin
+    ? pricing.platformMargin / qty
+    : product.platformFee;
+  const unitDisplayPrice = product.discountPrice != null
+    ? product.discountPrice + unitPlatformFee
+    : (product.displayPrice ?? perUnitPrice + unitPlatformFee);
   const customerSubtotal = unitDisplayPrice * qty;
 
   // Apply coupon if provided

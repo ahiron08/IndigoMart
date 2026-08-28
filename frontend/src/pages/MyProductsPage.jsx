@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import api from '@/services/api.js';
-import { formatCurrency } from '@/utils/format.js';
+import { formatCurrency, getProductOriginalPrice, getProductPrice } from '@/utils/format.js';
 
 function MyProductsPage() {
   const [products, setProducts] = useState([]);
@@ -206,7 +206,9 @@ function MyProductsPage() {
         <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {filteredProducts.map((product) => {
             const image = product.images?.[0];
-            const price = product.sellerPrice ?? product.price;
+            // Show the customer-facing price (includes platform fee) so the
+            // seller's cards match what buyers see on the product page.
+            const price = getProductPrice(product);
 
             return (
               <article key={product._id} className="group rounded-2xl border border-indigo/10 bg-canvas overflow-hidden">
@@ -257,7 +259,7 @@ function MyProductsPage() {
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 text-sm">
                       <span className="font-medium">{formatCurrency(price)}</span>
-                      {product.discountPrice != null && <span className="text-xs text-muted line-through">{formatCurrency(product.price)}</span>}
+                      {product.discountPrice != null && <span className="text-xs text-muted line-through">{formatCurrency(getProductOriginalPrice(product))}</span>}
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between border-t border-indigo/10 pt-3 text-xs text-muted">

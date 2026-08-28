@@ -196,10 +196,13 @@ export const getMyProduct = async (id, userId) => {
   return product;
 };
 
-export const listCreatorProducts = (creatorId) =>
-  Product.find({ creator: creatorId, isDeleted: { $ne: true } })
+export const listCreatorProducts = async (creatorId) => {
+  const products = await Product.find({ creator: creatorId, isDeleted: { $ne: true } })
     .populate('category', 'name slug')
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
+  return enrichWithCustomerPrice(products);
+};
 
 export const createProduct = async (data, files, creatorId) => {
   if (!files?.length) throw new AppError('At least one product image is required.', 422);
