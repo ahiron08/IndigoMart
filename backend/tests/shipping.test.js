@@ -21,6 +21,7 @@ import {
   calculateExpressSurcharge,
   calculateTax,
   computeAdditionalCharges,
+  applyDeliveryProportionalCap,
 } from '../services/shipping/rate.service.js';
 import { determineZone } from '../services/shipping/zone.service.js';
 import { calculateShippingSchema } from '../validators/shipping.validator.js';
@@ -322,5 +323,54 @@ describe('Missing shipping data (22)', () => {
   it('falls back gracefully for empty dimensions in package calc', async () => {
     const dims = await calculatePackageDimensions([{}], { allowance: 0 });
     assert.ok(dims.length > 0);
+  });
+});
+
+// 23. Delivery charge proportionality (low-priced items) ───────────────────
+describe('Delivery charge proportionality', () => {
+  // The engine derives a weight/zone base + 18% GST. For a typical ~0.5-1.0kg
+  // REST_OF_INDIA delivery that raw amount is 105 + 18.9 = 123.9. It must be
+  // capped at 55% of a ₹112 item value so the charge lands near ₹60 instead of
+  // exceeding the product price.
+  it('brings a ₹112 item delivery charge down to ~₹60 instead of ~₹123', () => {
+    // Raw charge reproduces the pre-fix estimate: REST_OF_INDIA 0.5-1.0kg base
+    // (105) plus 18% GST, which is exactly the ~₹123 that was being charged.
+    const rawCharge = 105 + calculateTax(105, 0.18); // 123.9
+    const capped = applyDeliveryProportionalCap(rawCharge, 112);
+    // 112 * 0.55 = 61.6 — "approximately ₹60", and far below the product price.
+    assert.ok(capped < 112, 'delivery must not exceed the product price');
+    assert.ok(capped >= 55 && capped <= 65, `expected ~₹60, got ${capped}`);
+  });
+
+  it('keeps weight/zone charge for high-value orders unchanged', () => {
+    // A ₹5000 item: the 55% cap (2750) is far above the raw ₹123.9, so the raw
+    // weight/zone-derived amount is preserved exactly as before.
+    const rawCharge = 105 + calculateTax(105, 0.18); // 123.9
+    assert.equal(applyDeliveryProportionalCap(rawCharge, 5000), rawCharge);
+  });
+
+  it('keeps heavy (expensive) multi-kg orders unchanged', () => {
+    // e.g. a heavier item charged ₹180 base + tax = 212.4, for a ₹1200 item.
+    const rawCharge = 180 + calculateTax(180, 0.18); // 212.4
+    const capped = applyDeliveryProportionalCap(rawCharge, 1200);
+    assert.equal(capped, rawCharge); // cap (660) > raw (212.4)
+  });
+
+  it('passes through unchanged when no order value is available', () => {
+    assert.equal(applyDeliveryProportionalCap(123.9, 0), 123.9);
+    assert.equal(applyDeliveryProportionalCap(123.9), 123.9);
+    assert.equal(applyDeliveryProportionalCap(80, undefined), 80);
+  });
+
+  it('scales proportionally across low-priced items', () => {
+    // At low item values the charge tracks the item value (55%), staying below
+    // the product price and scaling up with it.
+    assert.ok(applyDeliveryProportionalCap(123.9, 50) <= 50);
+    assert.ok(applyDeliveryProportionalCap(123.9, 112) <= 112);
+    assert.ok(applyDeliveryProportionalCap(123.9, 250) < 250);
+    // And it is monotonic: more expensive orders may receive a higher charge.
+    assert.ok(
+      applyDeliveryProportionalCap(123.9, 250) >= applyDeliveryProportionalCap(123.9, 112),
+    );
   });
 });

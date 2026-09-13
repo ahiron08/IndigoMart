@@ -118,6 +118,32 @@ export const calculateTax = (subtotal, taxRate) => {
 const roundRupees = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 /**
+ * Share of the order value that a delivery charge may not exceed.
+ * Keeps low-priced products from being charged more (or nearly more) in
+ * delivery than the item's own value, while heavier/expensive orders keep
+ * their weight/zone-derived charge (their cap is larger).
+ */
+const DELIVERY_CHARGE_RATIO = 0.55;
+
+/**
+ * Keep a computed delivery charge proportional to the order value.
+ *
+ * When an order value is supplied, the charge is capped at
+ * `orderValue × DELIVERY_CHARGE_RATIO` so low-priced items are never charged a
+ * delivery fee that exceeds ~half of the item price. For higher-value orders
+ * the weight/zone-derived charge is below the cap and passes through unchanged.
+ *
+ * @param {number} rawCharge  The delivery amount derived from weight/zone/mode.
+ * @param {number} [orderValue] The pre-tax order (item) value.
+ * @returns {number} The effective delivery charge.
+ */
+export const applyDeliveryProportionalCap = (rawCharge, orderValue = 0) => {
+  const value = Number(orderValue) || 0;
+  if (value <= 0) return Number(rawCharge) || 0;
+  return Math.min(Number(rawCharge) || 0, value * DELIVERY_CHARGE_RATIO);
+};
+
+/**
  * Compute all surcharges + tax for a given context.
  *
  * @param {object} params
@@ -177,4 +203,5 @@ export default {
   calculateInsuranceCharge,
   calculateTax,
   computeAdditionalCharges,
+  applyDeliveryProportionalCap,
 };

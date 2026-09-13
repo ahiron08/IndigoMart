@@ -73,6 +73,7 @@ export const calculateShippingCharge = async ({
   length,
   width,
   height,
+  orderValue = 0,
 }) => {
   const items = [
     {
@@ -89,7 +90,7 @@ export const calculateShippingCharge = async ({
     destinationPincode: deliveryPincode,
     items,
     paymentMethod: 'PREPAID',
-    orderValue: 0,
+    orderValue,
     shippingMode: 'SURFACE',
     carrier: 'INTERNAL',
     provider: 'INTERNAL',

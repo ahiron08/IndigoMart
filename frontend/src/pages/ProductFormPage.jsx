@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '@/services/api.js';
 import { useCategories } from '@/hooks/useCatalog.js';
 import { formatCurrency } from '@/utils/format.js';
+import { toStoredKilograms, convertWeightUnit } from '@/utils/weight.js';
 
 // Platform fee pricing table (mirrors backend)
 const PLATFORM_FEE_SLABS = [
@@ -76,6 +77,10 @@ function ProductFormPage() {
   const [validationErrors, setValidationErrors] = useState([]);
   const [success, setSuccess] = useState('');
   const [formData, setFormData] = useState(initialFormData);
+  // Unit selector for the product weight. Weights are stored in kilograms, but
+  // sellers may enter them in grams or kilograms. Defaults to grams so that
+  // small products (e.g. 10g, 100g) are not mistaken for 10kg / 100kg.
+  const [weightUnit, setWeightUnit] = useState('g');
   const [existingImages, setExistingImages] = useState([]);
   const [newImageFiles, setNewImageFiles] = useState([]);
   const [removedImageIds, setRemovedImageIds] = useState([]);
@@ -120,7 +125,20 @@ function ProductFormPage() {
         specifications: product.specifications || [],
         pickupAddress: product.pickupAddress || '',
         pickupPincode: product.pickupPincode || '',
-        shippingDetails: product.shippingDetails || initialFormData.shippingDetails,
+        shippingDetails: {
+            ...(initialFormData.shippingDetails),
+            ...(product.shippingDetails || {}),
+            // The weight is stored in kilograms but sellers enter grams or
+            // kilograms. Preselect the unit that matches the stored magnitude
+            // and re-express the value in that unit for editing.
+            weight:
+              product.shippingDetails?.weight === '' ||
+              product.shippingDetails?.weight == null
+                ? ''
+                : Number(product.shippingDetails.weight) < 1
+                  ? String(Number(product.shippingDetails.weight) * 1000)
+                  : String(product.shippingDetails.weight),
+          },
         metaTitle: product.metaTitle || '',
         metaDescription: product.metaDescription || '',
         searchKeywords: product.searchKeywords || '',
@@ -128,12 +146,42 @@ function ProductFormPage() {
       });
       setExistingImages(product.images || []);
       setRemovedImageIds([]);
+      // Preselect the weight unit that matches the stored magnitude. Values
+      // under 1 kg are shown in grams; everything else in kilograms.
+      if (
+        product.shippingDetails?.weight !== '' &&
+        product.shippingDetails?.weight != null &&
+        Number(product.shippingDetails.weight) < 1
+      ) {
+        setWeightUnit('g');
+      } else {
+        setWeightUnit('kg');
+      }
     } catch (err) {
       console.error('Failed to load product:', err);
       setError(err.response?.data?.message || 'Could not load product. Please try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // The `weight` field holds whatever number the seller typed, interpreted in
+  // the currently selected display unit (`weightUnit`). Weights are persisted
+  // in kilograms, so we convert to kg at the submission boundary.
+  const handleWeightChange = (value) => {
+    // Keep the raw value the seller typed; unit conversion happens on submit.
+    handleNestedChange('shippingDetails', 'weight', value);
+  };
+
+  const handleWeightUnitChange = (unit) => {
+    // Preserve the physical weight when the seller switches unit.
+    const reexpressed = convertWeightUnit(
+      formData.shippingDetails.weight,
+      weightUnit,
+      unit
+    );
+    setWeightUnit(unit);
+    handleNestedChange('shippingDetails', 'weight', reexpressed);
   };
 
   const handleInputChange = (field, value) => {
@@ -307,6 +355,16 @@ function ProductFormPage() {
       setError('Stock must be 0 or greater.');
       return false;
     }
+    // Weight is optional, but if provided it must be a valid non-negative
+    // number in the selected display unit.
+    const weightRaw = formData.shippingDetails?.weight;
+    if (weightRaw !== '' && weightRaw != null) {
+      const weightValue = Number(String(weightRaw).replace(',', '.'));
+      if (Number.isNaN(weightValue) || weightValue < 0) {
+        setError('Weight must be a valid number that is 0 or greater.');
+        return false;
+      }
+    }
     return true;
   };
 
@@ -321,10 +379,18 @@ function ProductFormPage() {
     try {
       const submitData = new FormData();
 
+      // The weight is entered in the selected display unit (grams or kg), but
+      // is always persisted in kilograms. Convert it here so the backend
+      // receives the same kilograms the previous system used.
+      const shippingDataForSubmit = {
+        ...formData.shippingDetails,
+        weight: toStoredKilograms(formData.shippingDetails.weight, weightUnit),
+      };
+
       // Basic fields
       Object.keys(formData).forEach((key) => {
         if (key === 'shippingDetails' || key === 'specifications' || key === 'tags') {
-          submitData.append(key, JSON.stringify(formData[key]));
+          submitData.append(key, JSON.stringify(key === 'shippingDetails' ? shippingDataForSubmit : formData[key]));
         } else if (key === 'dimensions') {
           // handled in shippingDetails
         } else if (typeof formData[key] === 'boolean') {
@@ -653,8 +719,29 @@ function ProductFormPage() {
             <div className="mt-6 space-y-5">
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-medium">Weight (kg)</label>
-                  <input className="form-input mt-2" type="number" step="0.01" min="0" value={formData.shippingDetails.weight} onChange={(e) => handleNestedChange('shippingDetails', 'weight', e.target.value)} placeholder="0.5" />
+                  <label className="block text-xs font-medium">Weight</label>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <input
+                      className="form-input flex-1"
+                      type="text"
+                      inputMode="decimal"
+                      value={formData.shippingDetails.weight}
+                      onChange={(e) => handleWeightChange(e.target.value)}
+                      placeholder={weightUnit === 'g' ? 'e.g., 100' : 'e.g., 1.5'}
+                    />
+                    <select
+                      className="form-input w-28"
+                      value={weightUnit}
+                      onChange={(e) => handleWeightUnitChange(e.target.value)}
+                      aria-label="Weight unit"
+                    >
+                      <option value="g">g</option>
+                      <option value="kg">kg</option>
+                    </select>
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted">
+                    Enter the weight in grams or kilograms.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium">Shipping Time</label>

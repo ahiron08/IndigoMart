@@ -5,6 +5,13 @@ import { env } from './config/env.js';
 import { seedDefaultSlabs } from './services/pricing.service.js';
 import { seedShippingDefaults } from './services/shipping/seed.js';
 
+import dns from "dns";
+
+dns.setServers([
+  "1.1.1.1",  // Cloudflare
+  "8.8.8.8"   // Google
+]);
+
 let server;
 let isShuttingDown = false;
 

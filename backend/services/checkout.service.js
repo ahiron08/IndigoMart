@@ -92,6 +92,10 @@ export const calculateCheckout = async ({ productId, quantity, deliveryPincode, 
   // Get dimensions
   const dims = getDefaultDimensions(product);
 
+  // Item value the customer pays for (used by the shipping calculator to keep
+  // the delivery charge proportional to a low-priced product).
+  const orderValue = (product.discountPrice ?? product.price) * qty;
+
   // Calculate shipping
   const shipping = await calculateShippingCharge({
     pickupPincode,
@@ -100,6 +104,7 @@ export const calculateCheckout = async ({ productId, quantity, deliveryPincode, 
     length: dims.length,
     width: dims.width,
     height: dims.height,
+    orderValue,
   });
 
   // Calculate pricing
@@ -199,6 +204,9 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
   // Use product-level pickup pincode first, fall back to seller's pincode
   const pickupPincode = product.pickupPincode || seller.pickupPincode || seller.pinCode || '785001';
   const dims = getDefaultDimensions(product);
+  // Item value the customer pays for (used by the shipping calculator to keep
+  // the delivery charge proportional to a low-priced product).
+  const orderValue = (product.discountPrice ?? product.price) * qty;
 
   // Calculate shipping
   const shipping = await calculateShippingCharge({
@@ -208,6 +216,7 @@ export const placeOrder = async ({ productId, quantity, addressId, paymentMethod
     length: dims.length,
     width: dims.width,
     height: dims.height,
+    orderValue,
   });
 
   // Calculate pricing

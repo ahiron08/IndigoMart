@@ -1,5 +1,5 @@
 import { determineZone } from './zone.service.js';
-import { getBaseRate, computeAdditionalCharges } from './rate.service.js';
+import { getBaseRate, computeAdditionalCharges, applyDeliveryProportionalCap } from './rate.service.js';
 import { getShippingConfig } from './config.service.js';
 import { calculateVolumetricWeight, totalDeadWeight, calculateChargeableWeight } from './weight.service.js';
 import { calculatePackageDimensions } from './package.service.js';
@@ -88,8 +88,17 @@ export const runEstimate = async ({
     config,
   });
 
-  const totalShippingCharge =
+  let totalShippingCharge =
     charges.subtotalExclTax + charges.tax;
+
+  // Keep delivery proportional to the item value: a low-priced product must not
+  // pay a delivery fee that exceeds (or nearly exceeds) its own price. We cap
+  // the final charge at a share of the order value. For higher-value/heavier
+  // orders the weight/zone-derived charge is below the cap and is kept as-is.
+  totalShippingCharge = applyDeliveryProportionalCap(
+    totalShippingCharge,
+    orderValue,
+  );
 
   const estimatedDays = estimateDeliveryDays(shippingMode, config);
 
